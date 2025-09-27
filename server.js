@@ -38,8 +38,10 @@ CREATE TABLE IF NOT EXISTS users (
     employee_id TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
-    department TEXT
+    department TEXT,
+    job_title TEXT
 );
+
 `;
 db.exec(initSQL);
 
@@ -60,12 +62,12 @@ app.get('/api/rooms', (req, res) => {
 
 // User
 const countUsers = db.prepare('SELECT COUNT(*) AS c FROM users').get().c;
-if (countUsers === 0) {
-  const insert = db.prepare('INSERT INTO users (employee_id, name, email, department) VALUES (?, ?, ?, ?)');
-  insert.run('E001', 'Nguyễn Mỹ Hương', 'huong.nguyen@dnse.com', 'Customer Service');
-  insert.run('E002', 'Trần Hoàng Nam', 'nam.tran@dnse.com', 'Techies');
-  insert.run('E003', 'Lê Ánh Tuyết', 'tuyet.le@dnse.com', 'HR');
-}
+// if (countUsers === 0) {
+//   const insert = db.prepare('INSERT INTO users (employee_id, name, email, department) VALUES (?, ?, ?, ?)');
+//   insert.run('E001', 'Nguyễn Mỹ Hương', 'huong.nguyen@dnse.com', 'Customer Service');
+//   insert.run('E002', 'Trần Hoàng Nam', 'nam.tran@dnse.com', 'Techies');
+//   insert.run('E003', 'Lê Ánh Tuyết', 'tuyet.le@dnse.com', 'HR');
+// }
 // API: users
 app.get('/api/users', (req, res) => {
     const rows = db.prepare('SELECT * FROM users ORDER BY name').all();
