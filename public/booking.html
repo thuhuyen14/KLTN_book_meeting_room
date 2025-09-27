@@ -19,6 +19,7 @@
           <li class="nav-item"><a class="nav-link" href="rooms.html">Danh sách phòng</a></li>
           <li class="nav-item"><a class="nav-link" href="booking.html">Đặt phòng</a></li>
           <li class="nav-item"><a class="nav-link" href="schedule.html">Lịch họp</a></li>
+          <li class="nav-item"><a class="nav-link" href="users.html">Nhân viên</a></li> 
           <li class="nav-item"><a class="nav-link" href="admin.html">Quản trị</a></li>
         </ul>
       </div>
@@ -39,8 +40,12 @@
             <input id="title" class="form-control" required />
           </div>
           <div class="mb-3">
-            <label class="form-label">Người tổ chức</label>
-            <input id="organizer" class="form-control" required />
+            <!-- <label class="form-label">Người tổ chức</label> -->
+            <!-- <input id="organizer" class="form-control" required /> -->
+            <label for="userSelect" class="form-label">Người đặt</label>
+            <select id="userSelect" class="form-select" required>
+              <option value="">Chọn nhân viên</option>
+            </select>
           </div>
           <div class="mb-3">
             <label class="form-label">Bắt đầu</label>

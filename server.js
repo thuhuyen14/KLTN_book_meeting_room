@@ -33,6 +33,13 @@ CREATE TABLE IF NOT EXISTS bookings (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   FOREIGN KEY(room_id) REFERENCES rooms(id)
 );
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    department TEXT
+);
 `;
 db.exec(initSQL);
 
@@ -40,9 +47,9 @@ db.exec(initSQL);
 const countRooms = db.prepare('SELECT COUNT(*) AS c FROM rooms').get().c;
 if (countRooms === 0) {
   const insert = db.prepare('INSERT INTO rooms (code, name, capacity, location, description, image) VALUES (?, ?, ?, ?, ?, ?)');
-  insert.run('R1', 'Phòng họp A', 8, 'Tầng 3', 'Phòng nhỏ phù hợp 6-8 người, có TV & wifi.', 'images/room1.svg');
-  insert.run('R2', 'Phòng họp B', 12, 'Tầng 2', 'Phòng trung, có máy chiếu, bảng viết.', 'images/room2.svg');
-  insert.run('R3', 'Phòng họp C', 25, 'Tầng 5', 'Phòng lớn cho hội thảo, hỗ trợ video conference.', 'images/room3.svg');
+  insert.run('R1', 'Phòng họp A', 8, 'Tầng 3', 'Phòng nhỏ phù hợp 6-8 người, có TV & wifi.', 'images/small_room.jpg');
+  insert.run('R2', 'Phòng họp B', 12, 'Tầng 2', 'Phòng trung, có máy chiếu, bảng viết.', 'images/medium_room.jpg');
+  insert.run('R3', 'Phòng họp C', 25, 'Tầng 5', 'Phòng lớn cho hội thảo, hỗ trợ video conference.', 'images/big_room.png');
 }
 
 // API: rooms
@@ -50,6 +57,22 @@ app.get('/api/rooms', (req, res) => {
   const rows = db.prepare('SELECT * FROM rooms ORDER BY id').all();
   res.json(rows);
 });
+
+// User
+const countUsers = db.prepare('SELECT COUNT(*) AS c FROM users').get().c;
+if (countUsers === 0) {
+  const insert = db.prepare('INSERT INTO users (employee_id, name, email, department) VALUES (?, ?, ?, ?)');
+  insert.run('E001', 'Nguyễn Mỹ Hương', 'huong.nguyen@dnse.com', 'Customer Service');
+  insert.run('E002', 'Trần Hoàng Nam', 'nam.tran@dnse.com', 'Techies');
+  insert.run('E003', 'Lê Ánh Tuyết', 'tuyet.le@dnse.com', 'HR');
+}
+// API: users
+app.get('/api/users', (req, res) => {
+    const rows = db.prepare('SELECT * FROM users ORDER BY name').all();
+    res.json(rows);
+});
+
+
 
 // API: bookings (filter by room/date)
 app.get('/api/bookings', (req, res) => {
