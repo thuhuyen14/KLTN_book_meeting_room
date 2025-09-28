@@ -131,6 +131,79 @@ app.delete('/api/bookings/:id', (req, res) => {
   res.json({ success: true });
 });
 
+// Route check phòng trống
+app.get('/api/available', (req, res) => {
+    const { start, end } = req.query;
+
+    if (!start || !end) {
+        return res.status(400).json({ error: 'Thiếu tham số thời gian' });
+    }
+
+    try {
+        const rooms = db.prepare('SELECT * FROM rooms').all();
+        const booked = db.prepare(`
+            SELECT room_id FROM bookings 
+            WHERE NOT (end_iso <= ? OR start_iso >= ?)
+        `).all(start, end);
+
+        const bookedIds = booked.map(b => b.room_id);
+        const available = rooms.filter(r => !bookedIds.includes(r.id));
+
+        res.json(available);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Lỗi server' });
+    }
+});
+
+// Phòng nào được book nhiều nhất
+app.get('/api/report/rooms', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT r.name, COUNT(b.id) as count
+      FROM bookings b
+      JOIN rooms r ON b.room_id = r.id
+      GROUP BY r.id
+      ORDER BY count DESC
+    `).all();
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Ngày nào được book nhiều nhất
+app.get('/api/report/days', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT date(start_iso) as day, COUNT(id) as count
+      FROM bookings
+      GROUP BY day
+      ORDER BY count DESC
+    `).all();
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Người/phòng ban nào đặt nhiều
+app.get('/api/report/users', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT u.name, u.department, COUNT(b.id) as count
+      FROM bookings b
+      JOIN users u ON b.organizer = u.name
+      GROUP BY u.id
+      ORDER BY count DESC
+    `).all();
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // Serve index.html for any other route (SPA fallback)
 app.get('*', (req, res) => {
   const p = path.join(__dirname, 'public', 'index.html');
@@ -140,6 +213,7 @@ app.get('*', (req, res) => {
     res.status(404).send('Not found');
   }
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log('Server started on port', PORT));

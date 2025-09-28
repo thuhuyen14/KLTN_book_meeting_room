@@ -17,10 +17,11 @@
       <div class="collapse navbar-collapse" id="nav">
         <ul class="navbar-nav ms-auto">
           <li class="nav-item"><a class="nav-link" href="rooms.html">Danh sách phòng</a></li>
-          <li class="nav-item"><a class="nav-link" href="booking.html">Đặt phòng</a></li>
+          <li class="nav-item"><a class="nav-link active" href="booking.html">Đặt phòng</a></li>
           <li class="nav-item"><a class="nav-link" href="schedule.html">Lịch họp</a></li>
           <li class="nav-item"><a class="nav-link" href="users.html">Nhân viên</a></li> 
           <li class="nav-item"><a class="nav-link" href="admin.html">Quản trị</a></li>
+          <li class="nav-item"><a class="nav-link" href="report.html">Thống kê</a></li>
         </ul>
       </div>
     </div>
@@ -31,22 +32,7 @@
     <div class="row">
       <div class="col-md-6">
         <form id="bookForm" class="card p-3 shadow-sm">
-          <div class="mb-3">
-            <label class="form-label">Phòng</label>
-            <select id="roomSelect" class="form-select" required></select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Tiêu đề</label>
-            <input id="title" class="form-control" required />
-          </div>
-          <div class="mb-3">
-            <!-- <label class="form-label">Người tổ chức</label> -->
-            <!-- <input id="organizer" class="form-control" required /> -->
-            <label for="userSelect" class="form-label">Người đặt</label>
-            <select id="userSelect" class="form-select" required>
-              <option value="">Chọn nhân viên</option>
-            </select>
-          </div>
+          <!-- Chọn thời gian trước -->
           <div class="mb-3">
             <label class="form-label">Bắt đầu</label>
             <input id="start" type="datetime-local" class="form-control" required />
@@ -55,13 +41,33 @@
             <label class="form-label">Kết thúc</label>
             <input id="end" type="datetime-local" class="form-control" required />
           </div>
+
+          <!-- Chọn phòng sau khi chọn thời gian -->
+          <div class="mb-3">
+            <label class="form-label">Phòng</label>
+            <select id="roomSelect" class="form-select" required>
+              <option value="">Chọn thời gian trước để xem phòng trống</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Tiêu đề</label>
+            <input id="title" class="form-control" required />
+          </div>
+          <div class="mb-3">
+            <label for="userSelect" class="form-label">Người đặt</label>
+            <select id="userSelect" class="form-select" required>
+              <option value="">Chọn nhân viên</option>
+            </select>
+          </div>
+
           <button class="btn btn-primary">Đặt</button>
         </form>
       </div>
       <div class="col-md-6">
         <div class="card p-3 shadow-sm">
           <h5>Hướng dẫn</h5>
-          <p>Chọn phòng, điền tiêu đề và thời gian. Hệ thống sẽ kiểm tra xung đột tự động.</p>
+          <p>Chọn thời gian trước, hệ thống sẽ tự động hiển thị các phòng còn trống. Điền tiêu đề và người đặt để hoàn tất.</p>
           <div id="result" class="mt-3"></div>
         </div>
       </div>
