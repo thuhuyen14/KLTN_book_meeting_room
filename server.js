@@ -41,7 +41,12 @@ CREATE TABLE IF NOT EXISTS users (
     department TEXT,
     job_title TEXT
 );
-
+CREATE TABLE IF NOT EXISTS auth_users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'user'
+);
 `;
 db.exec(initSQL);
 
@@ -53,6 +58,45 @@ if (countRooms === 0) {
   insert.run('R2', 'Phòng họp B', 12, 'Tầng 2', 'Phòng trung, có máy chiếu, bảng viết.', 'images/medium_room.jpg');
   insert.run('R3', 'Phòng họp C', 25, 'Tầng 5', 'Phòng lớn cho hội thảo, hỗ trợ video conference.', 'images/big_room.png');
 }
+
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+
+// API login
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Thiếu username hoặc password' });
+  }
+
+  try {
+    // Tìm user trong DB
+    const user = db.prepare('SELECT * FROM auth_users WHERE username = ?').get(username);
+
+    if (!user) {
+      return res.status(401).json({ error: 'Sai username hoặc password' });
+    }
+
+    // So khớp password
+    const match = bcrypt.compareSync(password, user.password_hash);
+    if (!match) {
+      return res.status(401).json({ error: 'Sai username hoặc password' });
+    }
+
+    // Tạo token (JWT)
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      'SECRET_KEY',   // 👉 thay bằng biến môi trường
+      { expiresIn: '2h' }
+    );
+
+    res.json({ success: true, token, role: user.role });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Lỗi server' });
+  }
+});
 
 // API: rooms
 app.get('/api/rooms', (req, res) => {
