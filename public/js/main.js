@@ -19,4 +19,8 @@ document.addEventListener("DOMContentLoaded", () => {
       location.href = "index.html";
     });
   }
+  else {
+    // Nếu chưa login, hiển thị nút Đăng nhập
+    userMenu.innerHTML = `<a class="btn btn-primary" href="login.html">Đăng nhập</a>`;
+  }
 });
