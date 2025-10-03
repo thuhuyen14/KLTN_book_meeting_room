@@ -37,9 +37,19 @@
           body: JSON.stringify({ username, password })
         });
         const data = await res.json();
+
         if (!data.success) throw new Error(data.error || "Đăng nhập thất bại");
+
+        // lưu token và role
         localStorage.setItem("token", data.token);
-        window.location.href = "index.html"; // redirect sau login
+        localStorage.setItem("role", data.role);
+
+        // chuyển hướng theo role
+        if (data.role === "admin") {
+          window.location.href = "admin.html";
+        } else {
+          window.location.href = "index.html";
+        }
       } catch (err) {
         document.getElementById("loginError").textContent = err.message;
       }

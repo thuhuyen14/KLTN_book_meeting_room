@@ -1,9 +1,11 @@
+require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const Database = require('better-sqlite3');
 const path = require('path');
 const cors = require('cors');
 const fs = require('fs');
+const authRoutes = require("./routes/auth"); 
 
 const app = express();
 const db = new Database(path.join(__dirname, 'booking.db'));
@@ -11,6 +13,8 @@ const db = new Database(path.join(__dirname, 'booking.db'));
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.use('/api', authRoutes);
 
 // Initialize DB
 const initSQL = `
@@ -72,7 +76,7 @@ app.post('/api/login', (req, res) => {
 
   try {
     // Tìm user trong DB
-    const user = db.prepare('SELECT * FROM auth_users WHERE username = ?').get(username);
+    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
 
     if (!user) {
       return res.status(401).json({ error: 'Sai username hoặc password' });
@@ -87,7 +91,7 @@ app.post('/api/login', (req, res) => {
     // Tạo token (JWT)
     const token = jwt.sign(
       { id: user.id, username: user.username, role: user.role },
-      'SECRET_KEY',   // 👉 thay bằng biến môi trường
+      process.env.JWT_SECRET, // 👉 thay bằng biến môi trường
       { expiresIn: '2h' }
     );
 
