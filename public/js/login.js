@@ -14,7 +14,11 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     if (!data.success) throw new Error(data.error || "Đăng nhập thất bại");
 
     localStorage.setItem("token", data.token);
+    localStorage.setItem("username", data.username);
+    localStorage.setItem("full_name", data.full_name);
     localStorage.setItem("role", data.role);
+    localStorage.setItem("id", data.id);
+
 
     if (data.role === "admin") {
       window.location.href = "admin.html";

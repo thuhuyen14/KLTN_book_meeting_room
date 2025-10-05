@@ -40,9 +40,12 @@
 
         if (!data.success) throw new Error(data.error || "Đăng nhập thất bại");
 
-        // lưu token và role
+        // lưu thông tin user sau khi login thành công
         localStorage.setItem("token", data.token);
+        localStorage.setItem("username", data.username);
+        localStorage.setItem("full_name", data.full_name);
         localStorage.setItem("role", data.role);
+        localStorage.setItem("id", data.id);
 
         // chuyển hướng theo role
         if (data.role === "admin") {

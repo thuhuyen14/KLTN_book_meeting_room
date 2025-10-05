@@ -20,12 +20,14 @@ router.post("/login", async (req, res) => {
     }
 
     // OK -> trả token (giả sử simple token), role
-    res.json({
-      success: true,
-      token: "some-token",
-      role: user.role,
-      full_name: user.full_name
-    });
+res.json({
+  success: true,
+  token: "some-token",   // hoặc JWT thật nếu bạn đã cấu hình
+  role: user.role,
+  id: user.id,
+  username: user.username,
+  full_name: user.full_name || null
+});
   } catch (err) {
     console.error(err);
     res.json({ success: false, error: "Lỗi server" });
