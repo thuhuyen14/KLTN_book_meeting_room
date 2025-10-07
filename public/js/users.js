@@ -12,8 +12,8 @@ async function loadUsers() {
         users.forEach(u => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td>${u.employee_id}</td>
-                <td>${u.name}</td>
+                <td>${u.id}</td>
+                <td>${u.full_name}</td>
                 <td>${u.email}</td>
                 <td>${u.department}</td>
             `;

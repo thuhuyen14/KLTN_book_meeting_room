@@ -83,7 +83,7 @@ app.get('/api/rooms', async (req, res) => {
 // API: users (MySQL)
 app.get('/api/users', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM users ORDER BY name');
+    const [rows] = await db.query('SELECT * FROM users ORDER BY id');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -240,7 +240,7 @@ app.get('/api/report/days', async (req, res) => {
 app.get('/api/report/users', async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT u.name, u.department, COUNT(b.id) as count
+      SELECT u.full_name, u.department, COUNT(b.id) as count
       FROM bookings b
       JOIN users u ON b.user_id = u.id
       GROUP BY u.id
