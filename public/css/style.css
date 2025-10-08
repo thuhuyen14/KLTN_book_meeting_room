@@ -4,3 +4,25 @@ header{background: linear-gradient(90deg, #0b74de, #06b6d4);}
 .shadow-sm{box-shadow:0 4px 12px rgba(15,23,42,0.06);}
 .container h2{margin-top:10px;}
 img{max-width:100%;height:auto;}
+
+/* Đảm bảo carousel có kích thước cố định/nhất quán và ảnh không thay đổi layout */
+#mainCarousel { max-width: 900px; }
+#mainCarousel .carousel-inner { overflow: hidden; }
+#mainCarousel .carousel-item { height: 360px; }
+#mainCarousel .carousel-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* cắt/zoom ảnh để lấp đầy khung mà không bóp méo */
+  object-position: center;
+}
+
+/* Responsive: thu nhỏ chiều cao trên màn hình nhỏ */
+@media (max-width: 768px) {
+  #mainCarousel { max-width: 100%; }
+  #mainCarousel .carousel-item { height: 220px; }
+}
+
+/* Nếu muốn tỉ lệ cố định thay vì height cố định, có thể dùng aspect-ratio (tùy trình duyệt) */
+@supports (aspect-ratio: 16/9) {
+  #mainCarousel .carousel-item { height: auto; aspect-ratio: 16/9; }
+}
