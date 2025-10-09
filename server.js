@@ -73,7 +73,21 @@ app.use('/api', authRoutes);
 // API: rooms (MySQL)
 app.get('/api/rooms', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM rooms ORDER BY id');
+    const [rows] = await db.query
+    (`      
+      SELECT 
+        r.id,
+        r.name,
+        r.image,
+        rt.description AS room_description,
+        rt.default_capacity AS capacity,
+        CONCAT('Tầng ', l.floor, ' - ', l.branch) AS location_name
+      FROM rooms r
+      LEFT JOIN room_types rt ON r.room_type_id = rt.id
+      LEFT JOIN locations l ON r.location_id = l.id
+      ORDER BY r.id;
+      `
+    );
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -193,7 +207,18 @@ app.get('/api/available', async (req, res) => {
         return res.status(400).json({ error: 'Thiếu tham số thời gian' });
     }
     try {
-        const [rooms] = await db.query('SELECT * FROM rooms');
+        const [rooms] = await db.query(`
+          SELECT 
+            r.id,
+            r.name,
+            r.image,
+            rt.description AS room_description,
+            rt.default_capacity AS capacity,
+            CONCAT('Tầng ', l.floor, ' - ', l.branch) AS location_name
+          FROM rooms r
+          LEFT JOIN room_types rt ON r.room_type_id = rt.id
+          LEFT JOIN locations l ON r.location_id = l.id
+          `);
         const [booked] = await db.query('SELECT room_id FROM bookings WHERE NOT (end_iso <= ? OR start_iso >= ?)', [start, end]);
         const bookedIds = booked.map(b => b.room_id);
         const available = rooms.filter(r => !bookedIds.includes(r.id));

@@ -56,10 +56,10 @@ async function loadAvailableRooms() {
             return;
         }
         rooms.forEach(r => {
-            const opt = document.createElement('option');
-            opt.value = r.id;
-            opt.textContent = r.name + ' (' + r.code + ') - ' + r.capacity + ' người';
-            roomSelect.appendChild(opt);
+        const opt = document.createElement('option');
+        opt.value = r.id;
+        opt.textContent = `${r.name} - ${r.location_name} - ${r.capacity} người`;
+        roomSelect.appendChild(opt);
         });
     } catch (err) {
         console.error(err);
