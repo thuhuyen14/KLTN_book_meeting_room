@@ -15,7 +15,7 @@ async function loadUsers() {
     if (role === 'user') {
         // Tạo option duy nhất là chính user đó
         const opt = document.createElement('option');
-        opt.value = username;   // hoặc id nếu bạn lưu id user
+        opt.value = localStorage.getItem('id');   // dùng id
         opt.textContent = fullName;
         userSelect.appendChild(opt);
         userSelect.disabled = true; // không cho sửa
@@ -26,8 +26,8 @@ async function loadUsers() {
     const users = await api('/users');
     users.forEach(u => {
         const opt = document.createElement('option');
-        opt.value = u.username; // hoặc u.id
-        opt.textContent = `${u.full_name} - ${u.department}`;
+        opt.value = u.id; // dùng id
+        opt.textContent = `${u.name} - ${u.department}`;
         userSelect.appendChild(opt);
     });
     userSelect.disabled = false;
@@ -80,9 +80,9 @@ async function handleBooking(e) {
     const role = localStorage.getItem('role');
     // 👉 Xác định organizer tùy theo role
     let organizer;
-    if (role === 'user') {
-        // Lấy username của người đăng nhập hiện tại
-        organizer = localStorage.getItem('username');
+    if (role === 'user') {        
+        // Lấy id của người đăng nhập hiện tại
+        organizer = localStorage.getItem('id');
     } else {
         organizer = document.getElementById('userSelect').value;
     }
@@ -103,7 +103,7 @@ async function handleBooking(e) {
         const res = await api('/book', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ room_id, title, organizer, start_iso, end_iso })
+            body: JSON.stringify({ room_id, title, user_id: organizer, start_iso, end_iso })
         });
         if (res.success) {
             result.innerHTML = `<div class="alert-success">Đặt phòng thành công: ${res.booking.title}</div>`;
