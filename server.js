@@ -13,62 +13,8 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/api', authRoutes);
+app.use('/api', authRoutes); // lấy api login từ đây
 
-// API login (MySQL)
-// === Thay đoạn API login cũ bằng đoạn này ===
-// const jwt = require('jsonwebtoken');
-// const bcrypt = require('bcrypt');
-
-// app.post('/api/login', async (req, res) => {
-//   const { username, password } = req.body;
-//   if (!username || !password) {
-//     return res.status(400).json({ success:false, error: 'Thiếu username hoặc password' });
-//   }
-
-//   try {
-//     // Chỉ lấy những cột cần thiết (đảm bảo tên cột khớp với DB của bạn)
-//     const [rows] = await db.query(
-//       'SELECT id, username, password_hash, role, full_name FROM users WHERE username = ? LIMIT 1',
-//       [username]
-//     );
-
-//     if (!rows || rows.length === 0) {
-//       console.log('Login attempt - user not found:', username);
-//       return res.status(401).json({ success:false, error: 'Sai username hoặc password' });
-//     }
-
-//     const user = rows[0];
-//     console.log('User from DB:', user);
-
-//     // So khớp password (dùng await)
-//     const match = await bcrypt.compare(password, user.password_hash);
-//     if (!match) {
-//       console.log('Login attempt - wrong password for:', username);
-//       return res.status(401).json({ success:false, error: 'Sai username hoặc password' });
-//     }
-
-//     // Tạo JWT token
-//     const token = jwt.sign(
-//       { id: user.id, username: user.username, role: user.role },
-//       process.env.JWT_SECRET || 'SECRET_KEY', // nếu chưa có .env, fallback tạm
-//       { expiresIn: '2h' }
-//     );
-
-//     // TRẢ VỀ ĐÚNG TRƯỜNG FRONTEND CẦN
-//     res.json({
-//       success: true,
-//       token,
-//       role: user.role,
-//       id: user.id,               // numeric id (rất quan trọng)
-//       username: user.username,
-//       full_name: user.full_name || null
-//     });
-//   } catch (err) {
-//     console.error('Login error:', err);
-//     res.status(500).json({ success:false, error: 'Lỗi server' });
-//   }
-// });
 
 // API: rooms (MySQL)
 app.get('/api/rooms', async (req, res) => {
@@ -81,7 +27,7 @@ app.get('/api/rooms', async (req, res) => {
         r.image,
         rt.description AS room_description,
         rt.default_capacity AS capacity,
-        CONCAT('Tầng ', l.floor, ' - ', b.branch_name) AS location_name
+        CONCAT('Tầng ', l.floor, ' - ', b.name) AS location_name
       FROM rooms r
       LEFT JOIN room_types rt ON r.room_type_id = rt.id
       LEFT JOIN locations l ON r.location_id = l.id
@@ -98,7 +44,18 @@ app.get('/api/rooms', async (req, res) => {
 // API: users (MySQL)
 app.get('/api/users', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM users ORDER BY id');
+    const [rows] = await db.query(`
+      SELECT u.id,
+      up.full_name, 
+      up.email,
+      d.name AS department,
+      j.name AS job_title
+      FROM users u
+      LEFT JOIN user_profiles up ON u.id = up.user_id
+      LEFT JOIN departments d ON u.department_id = d.id
+      LEFT JOIN job_titles j ON u.job_title_id = j.id
+      ORDER BY id
+    `);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -220,7 +177,7 @@ app.get('/api/available', async (req, res) => {
             r.image,
             rt.description AS room_description,
             rt.default_capacity AS capacity,
-            CONCAT('Tầng ', l.floor, ' - ', b.branch_name) AS location_name
+            CONCAT('Tầng ', l.floor, ' - ', b.name) AS location_name
           FROM rooms r
           LEFT JOIN room_types rt ON r.room_type_id = rt.id
           LEFT JOIN locations l ON r.location_id = l.id
@@ -273,10 +230,11 @@ app.get('/api/report/days', async (req, res) => {
 app.get('/api/report/users', async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT u.full_name, u.department, COUNT(b.id) as count
+      SELECT up.full_name, d.name, COUNT(b.id) as count
       FROM bookings b
       JOIN users u ON b.user_id = u.id
-      JOIN user_profiles up ON u.id = up.user_id 
+      LEFT JOIN user_profiles up ON u.id = up.user_id
+      LEFT JOIN departments d ON u.department_id = d.id
       GROUP BY u.id
       ORDER BY count DESC
     `);

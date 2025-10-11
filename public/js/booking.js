@@ -12,7 +12,7 @@ async function loadUsers() {
     const userSelect = document.getElementById('userSelect');
 
     // Nếu là user thường -> không cần fetch toàn bộ
-    if (role === 'user') {
+    if (role === 'User') {
         // Tạo option duy nhất là chính user đó
         const opt = document.createElement('option');
         opt.value = localStorage.getItem('id');   // dùng id
@@ -27,7 +27,7 @@ async function loadUsers() {
     users.forEach(u => {
         const opt = document.createElement('option');
         opt.value = u.id; // dùng id
-        opt.textContent = `${u.name} - ${u.department}`;
+        opt.textContent = `${u.full_name} - ${u.department}`;
         userSelect.appendChild(opt);
     });
     userSelect.disabled = false;

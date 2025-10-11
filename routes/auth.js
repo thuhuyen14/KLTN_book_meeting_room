@@ -6,8 +6,23 @@ const router = express.Router();
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
+
   try {
-    const [rows] = await db.query("SELECT * FROM users WHERE username = ?", [username]);
+    const [rows] = await db.query(
+      `
+      SELECT 
+        u.id,
+        u.username,
+        u.password_hash,
+        r.name AS role,
+        p.full_name
+      FROM users u
+      LEFT JOIN roles r ON u.role_id = r.id
+      LEFT JOIN user_profiles p ON u.id = p.user_id
+      WHERE u.username = ?
+      `,
+      [username]
+    );
     if (rows.length === 0) {
       return res.json({ success: false, error: "User không tồn tại" });
     }

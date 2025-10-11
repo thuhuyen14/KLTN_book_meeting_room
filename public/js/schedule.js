@@ -46,7 +46,7 @@ async function renderBookings() {
     card.innerHTML = `
       <strong>${b.title}</strong>
       <div class="text-muted">
-        ${b.room_name} — ${new Date(b.start_iso).toLocaleString()} → ${new Date(b.end_iso).toLocaleString()} — ${b.booked_by}
+        ${b.room_name} — ${new Date(b.start_time).toLocaleString()} → ${new Date(b.end_time).toLocaleString()} — ${b.booked_by}
       </div>
     `;
 

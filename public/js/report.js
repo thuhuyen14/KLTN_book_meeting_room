@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   new Chart(document.getElementById('userChart'), {
     type: 'bar',
     data: {
-      labels: users.map(u => `${u.full_name} (${u.department})`),
+      labels: users.map(u => `${u.full_name} (${u.name})`),
       datasets: [{ label: 'Số lần đặt', data: users.map(u => u.count) }]
     }
   });
