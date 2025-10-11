@@ -81,10 +81,11 @@ app.get('/api/rooms', async (req, res) => {
         r.image,
         rt.description AS room_description,
         rt.default_capacity AS capacity,
-        CONCAT('Tầng ', l.floor, ' - ', l.branch) AS location_name
+        CONCAT('Tầng ', l.floor, ' - ', b.branch_name) AS location_name
       FROM rooms r
       LEFT JOIN room_types rt ON r.room_type_id = rt.id
       LEFT JOIN locations l ON r.location_id = l.id
+      LEFT JOIN branches b ON l.branch_id = b.id
       ORDER BY r.id;
       `
     );
@@ -111,44 +112,48 @@ app.get('/api/bookings', async (req, res) => {
 
   if (room_id && date) {
     sql = `
-      SELECT b.*, r.name AS room_name, u.full_name AS booked_by
+      SELECT b.*, r.name AS room_name, up.full_name AS booked_by
       FROM bookings b
       JOIN rooms r ON r.id = b.room_id
       JOIN users u ON u.id = b.user_id
+      JOIN user_profiles up ON u.id = up.user_id  -- Thêm JOIN với bảng user_profiles
       WHERE b.room_id = ?
-        AND DATE(b.start_iso) <= ?
-        AND DATE(b.end_iso) >= ?
-      ORDER BY b.start_iso
+        AND DATE(b.start_time) <= ?
+        AND DATE(b.end_time) >= ?
+      ORDER BY b.start_time
     `;
     params = [room_id, date, date];
   } else if (room_id) {
     sql = `
-      SELECT b.*, r.name AS room_name, u.full_name AS booked_by
+      SELECT b.*, r.name AS room_name, up.full_name AS booked_by
       FROM bookings b
       JOIN rooms r ON r.id = b.room_id
       JOIN users u ON u.id = b.user_id
+      JOIN user_profiles up ON u.id = up.user_id  -- Thêm JOIN với bảng user_profiles
       WHERE b.room_id = ?
-      ORDER BY b.start_iso
+      ORDER BY b.start_time
     `;
     params = [room_id];
   } else if (date) {
     sql = `
-      SELECT b.*, r.name AS room_name, u.full_name AS booked_by
+      SELECT b.*, r.name AS room_name, up.full_name AS booked_by
       FROM bookings b
       JOIN rooms r ON r.id = b.room_id
       JOIN users u ON u.id = b.user_id
-      WHERE DATE(b.start_iso) <= ?
-        AND DATE(b.end_iso) >= ?
-      ORDER BY b.start_iso
+      JOIN user_profiles up ON u.id = up.user_id  -- Thêm JOIN với bảng user_profiles
+      WHERE DATE(b.start_time) <= ?
+        AND DATE(b.end_time) >= ?
+      ORDER BY b.start_time
     `;
     params = [date, date];
   } else {
     sql = `
-      SELECT b.*, r.name AS room_name, u.full_name AS booked_by
+      SELECT b.*, r.name AS room_name, up.full_name AS booked_by
       FROM bookings b
       JOIN rooms r ON r.id = b.room_id
       JOIN users u ON u.id = b.user_id
-      ORDER BY b.start_iso
+      JOIN user_profiles up ON u.id = up.user_id
+      ORDER BY b.start_time
     `;
   }
 
@@ -164,22 +169,23 @@ app.get('/api/bookings', async (req, res) => {
 // Create booking (with conflict check) (MySQL)
 app.post('/api/book', async (req, res) => {
   try {
-    const { room_id, title, user_id, start_iso, end_iso } = req.body;
-    if (!room_id || !title || !user_id || !start_iso || !end_iso) {
+    const { room_id, title, user_id, start_time, end_time } = req.body;
+    if (!room_id || !title || !user_id || !start_time || !end_time) {
       return res.status(400).json({ error: 'Thiếu thông tin' });
     }
-    const s = new Date(start_iso);
-    const e = new Date(end_iso);
+    const s = new Date(start_time);
+    const e = new Date(end_time);
     if (isNaN(s) || isNaN(e) || s >= e) {
       return res.status(400).json({ error: 'Thời gian không hợp lệ' });
     }
     // Check conflict
-    const [conflicts] = await db.query('SELECT * FROM bookings WHERE room_id = ? AND NOT (end_iso <= ? OR start_iso >= ?)', [room_id, start_iso, end_iso]);
+    const roomIdStr = String(room_id);
+    const [conflicts] = await db.query('SELECT * FROM bookings WHERE room_id = ? AND NOT (end_time <= ? OR start_time >= ?)', [roomIdStr, start_time, end_time]);
     if (conflicts.length > 0) {
       return res.status(409).json({ error: 'Xung đột lịch với booking hiện tại', conflict: conflicts[0] });
     }
     // Insert booking
-    const [result] = await db.query('INSERT INTO bookings (room_id, title, user_id, start_iso, end_iso) VALUES (?, ?, ?, ?, ?)', [room_id, title, user_id, start_iso, end_iso]);
+    const [result] = await db.query('INSERT INTO bookings (room_id, title, user_id, start_time, end_time) VALUES (?, ?, ?, ?, ?)', [roomIdStr, title, user_id, start_time, end_time]);
     const [rows] = await db.query('SELECT b.*, r.name as room_name FROM bookings b JOIN rooms r ON r.id = b.room_id WHERE b.id = ?', [result.insertId]);
     res.json({ success: true, booking: rows[0] });
   } catch (err) {
@@ -214,12 +220,14 @@ app.get('/api/available', async (req, res) => {
             r.image,
             rt.description AS room_description,
             rt.default_capacity AS capacity,
-            CONCAT('Tầng ', l.floor, ' - ', l.branch) AS location_name
+            CONCAT('Tầng ', l.floor, ' - ', b.branch_name) AS location_name
           FROM rooms r
           LEFT JOIN room_types rt ON r.room_type_id = rt.id
           LEFT JOIN locations l ON r.location_id = l.id
+          LEFT JOIN branches b ON l.branch_id = b.id
+          ORDER BY r.id;
           `);
-        const [booked] = await db.query('SELECT room_id FROM bookings WHERE NOT (end_iso <= ? OR start_iso >= ?)', [start, end]);
+        const [booked] = await db.query('SELECT room_id FROM bookings WHERE NOT (end_time <= ? OR start_time >= ?)', [start, end]);
         const bookedIds = booked.map(b => b.room_id);
         const available = rooms.filter(r => !bookedIds.includes(r.id));
         res.json(available);
@@ -250,7 +258,7 @@ app.get('/api/report/rooms', async (req, res) => {
 app.get('/api/report/days', async (req, res) => {
   try {
     const [rows] = await db.query(`
-      SELECT DATE(start_iso) as day, COUNT(id) as count
+      SELECT DATE(start_time) as day, COUNT(id) as count
       FROM bookings
       GROUP BY day
       ORDER BY count DESC
@@ -268,6 +276,7 @@ app.get('/api/report/users', async (req, res) => {
       SELECT u.full_name, u.department, COUNT(b.id) as count
       FROM bookings b
       JOIN users u ON b.user_id = u.id
+      JOIN user_profiles up ON u.id = up.user_id 
       GROUP BY u.id
       ORDER BY count DESC
     `);

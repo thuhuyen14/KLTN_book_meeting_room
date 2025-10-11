@@ -87,15 +87,15 @@ async function handleBooking(e) {
         organizer = document.getElementById('userSelect').value;
     }
 
-    const start_iso = document.getElementById('start').value;
-    const end_iso = document.getElementById('end').value;
+    const start_time = document.getElementById('start').value;
+    const end_time = document.getElementById('end').value;
 
     if (!room_id) {
         result.innerHTML = `<div class="alert alert-warning">Vui lòng chọn phòng trống</div>`;
         return;
     }
     // Validate thời gian
-    if (new Date(start_iso) >= new Date(end_iso)) {
+    if (new Date(start_time) >= new Date(end_time)) {
         result.innerHTML = `<div class="alert alert-warning">Thời gian kết thúc phải sau thời gian bắt đầu</div>`;
         return;
     }
@@ -103,7 +103,7 @@ async function handleBooking(e) {
         const res = await api('/book', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ room_id, title, user_id: organizer, start_iso, end_iso })
+            body: JSON.stringify({ room_id, title, user_id: organizer, start_time, end_time })
         });
         if (res.success) {
             result.innerHTML = `<div class="alert-success">Đặt phòng thành công: ${res.booking.title}</div>`;
@@ -141,8 +141,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                     else if (b.room_id === 'R003') color = '#36b9cc';
                     return {
                         title: b.title,
-                        start: b.start_iso,
-                        end: b.end_iso,
+                        start: b.start_time,
+                        end: b.end_time,
                         backgroundColor: color,
                         borderColor: color,
                         extendedProps: {
