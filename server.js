@@ -61,6 +61,36 @@ app.get('/api/users', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// API: lấy danh sách team
+app.get('/api/teams', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT DISTINCT t.id, t.name
+      FROM teams t
+      ORDER BY t.name
+    `);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// API: lấy users theo team
+app.get('/api/teams/:teamId/users', async (req, res) => {
+  try {
+    const teamId = req.params.teamId;
+    const [rows] = await db.query(`
+      SELECT u.id, up.full_name, d.name AS department
+      FROM users u
+      LEFT JOIN user_profiles up ON u.id = up.user_id
+      LEFT JOIN departments d ON u.department_id = d.id
+      WHERE u.team_id = ?
+    `, [teamId]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.get('/api/bookings', async (req, res) => {
   const room_id = req.query.room_id;
@@ -123,33 +153,89 @@ app.get('/api/bookings', async (req, res) => {
   }
 });
 
-// Create booking (with conflict check) (MySQL)
+// 📌 API: Tạo booking (có check trùng lịch + thêm người tham dự theo team)
 app.post('/api/book', async (req, res) => {
+  const conn = await db.getConnection();
+  await conn.beginTransaction();
+
   try {
-    const { room_id, title, user_id, start_time, end_time } = req.body;
+    const { room_id, title, user_id, start_time, end_time, team_id, participants } = req.body;
+
+    // 1️⃣ Validate input
     if (!room_id || !title || !user_id || !start_time || !end_time) {
       return res.status(400).json({ error: 'Thiếu thông tin' });
     }
+
     const s = new Date(start_time);
     const e = new Date(end_time);
     if (isNaN(s) || isNaN(e) || s >= e) {
       return res.status(400).json({ error: 'Thời gian không hợp lệ' });
     }
-    // Check conflict
+
+    // 2️⃣ Kiểm tra xung đột phòng họp
     const roomIdStr = String(room_id);
-    const [conflicts] = await db.query('SELECT * FROM bookings WHERE room_id = ? AND NOT (end_time <= ? OR start_time >= ?)', [roomIdStr, start_time, end_time]);
+    const [conflicts] = await conn.query(
+      'SELECT * FROM bookings WHERE room_id = ? AND NOT (end_time <= ? OR start_time >= ?)',
+      [roomIdStr, start_time, end_time]
+    );
+
     if (conflicts.length > 0) {
+      await conn.rollback();
       return res.status(409).json({ error: 'Xung đột lịch với booking hiện tại', conflict: conflicts[0] });
     }
-    // Insert booking
-    const [result] = await db.query('INSERT INTO bookings (room_id, title, user_id, start_time, end_time) VALUES (?, ?, ?, ?, ?)', [roomIdStr, title, user_id, start_time, end_time]);
-    const [rows] = await db.query('SELECT b.*, r.name as room_name FROM bookings b JOIN rooms r ON r.id = b.room_id WHERE b.id = ?', [result.insertId]);
+
+    // 3️⃣ Thêm bản ghi booking
+    const [result] = await conn.query(
+      'INSERT INTO bookings (room_id, title, user_id, start_time, end_time) VALUES (?, ?, ?, ?, ?)',
+      [roomIdStr, title, user_id, start_time, end_time]
+    );
+    const bookingId = result.insertId;
+
+    // 4️⃣ Thêm người tham dự
+    if (team_id) {
+      // → Thêm tất cả thành viên team
+      const [members] = await conn.query('SELECT id FROM users WHERE team_id = ?', [team_id]);
+      if (members.length > 0) {
+        const values = members.map(m => [bookingId, m.id, team_id]);
+        await conn.query(
+          'INSERT INTO participants (booking_id, user_id, team_id) VALUES ?',
+          [values]
+        );
+      }
+    }
+        // ➕ Thêm người tham dự lẻ (nếu có)
+    if (Array.isArray(participants) && participants.length > 0) {
+      const values = participants.map(uid => [bookingId, uid, null]);
+      await conn.query(
+        'INSERT INTO participants (booking_id, user_id, team_id) VALUES ? ON DUPLICATE KEY UPDATE booking_id = booking_id',
+        [values]
+      );
+    }
+
+    // → Luôn thêm organizer (tránh trùng với team đã thêm)
+    await conn.query(
+      'INSERT INTO participants (booking_id, user_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE booking_id=booking_id',
+      [bookingId, user_id]
+    );
+
+    // 5️⃣ Trả về booking vừa tạo
+    const [rows] = await conn.query(
+      'SELECT b.*, r.name AS room_name FROM bookings b JOIN rooms r ON r.id = b.room_id WHERE b.id = ?',
+      [bookingId]
+    );
+
+    await conn.commit();
     res.json({ success: true, booking: rows[0] });
+
   } catch (err) {
-    console.error(err);
+    await conn.rollback();
+    console.error('❌ Lỗi tạo booking:', err);
     res.status(500).json({ error: 'Lỗi server' });
+  } finally {
+    conn.release();
   }
 });
+
 
 // Delete booking (MySQL)
 app.delete('/api/bookings/:id', async (req, res) => {
