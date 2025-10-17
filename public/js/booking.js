@@ -23,6 +23,7 @@ async function loadTeams() {
 }
 
 // Load users vào dropdown (userSelect cho organizer, participantsSelect cho người tham dự)
+let allUsers = []; // 👉 lưu lại để lọc theo team sau
 async function loadUsers() {
     const role = localStorage.getItem('role');
     const fullName = localStorage.getItem('full_name');
@@ -33,7 +34,7 @@ async function loadUsers() {
     participantsSelect.innerHTML = '';
 
     try {
-        const users = await api('/users');
+        allUsers = await api('/users');
 
         // Organizer (người đặt)
         if (role === 'User') {
@@ -43,7 +44,7 @@ async function loadUsers() {
             userSelect.appendChild(opt);
             userSelect.disabled = true;
         } else {
-            users.forEach(u => {
+            allUsers.forEach(u => {
                 const opt = document.createElement('option');
                 opt.value = u.id;
                 opt.textContent = `${u.full_name} - ${u.department}`;
@@ -52,8 +53,8 @@ async function loadUsers() {
             userSelect.disabled = false;
         }
 
-        // Participants (dùng Tom Select để search + chọn nhiều)
-        users.forEach(u => {
+        // Participants (ban đầu load tất cả để TomSelect sẵn)
+        allUsers.forEach(u => {
             const opt = document.createElement('option');
             opt.value = u.id;
             opt.textContent = `${u.full_name} - ${u.department}`;
@@ -77,11 +78,12 @@ async function loadUsers() {
     }
 }
 
-// Load phòng khả dụng dựa theo thời gian
+// Load phòng khả dụng dựa theo thời gian + lọc theo chi nhánh
 async function loadAvailableRooms() {
     const startInput = document.getElementById('start').value;
     const endInput = document.getElementById('end').value;
     const roomSelect = document.getElementById('roomSelect');
+    const userBranch = localStorage.getItem('branch_id'); // 👈 chi nhánh user
 
     if (!startInput || !endInput) {
         roomSelect.innerHTML = '<option value="">Chọn thời gian trước để xem phòng trống</option>';
@@ -92,12 +94,16 @@ async function loadAvailableRooms() {
         const res = await fetch(`/api/available?start=${encodeURIComponent(startInput)}&end=${encodeURIComponent(endInput)}`);
         if (!res.ok) throw new Error('Lỗi tải phòng trống');
         const rooms = await res.json();
+
+        // ✅ Chỉ lấy phòng cùng chi nhánh
+        const filteredRooms = rooms.filter(r => String(r.branch_id) === String(userBranch));
+
         roomSelect.innerHTML = '';
-        if (rooms.length === 0) {
-            roomSelect.innerHTML = '<option value="">Không còn phòng trống</option>';
+        if (filteredRooms.length === 0) {
+            roomSelect.innerHTML = '<option value="">Không còn phòng trống tại chi nhánh của bạn</option>';
             return;
         }
-        rooms.forEach(r => {
+        filteredRooms.forEach(r => {
             const opt = document.createElement('option');
             opt.value = r.id;
             opt.textContent = `${r.name} - ${r.location_name} - ${r.capacity} người`;
@@ -108,6 +114,35 @@ async function loadAvailableRooms() {
         roomSelect.innerHTML = '<option value="">Không tải được danh sách phòng trống</option>';
     }
 }
+
+// Lọc người tham dự khi chọn team
+document.getElementById('teamSelect').addEventListener('change', (e) => {
+    const selectedTeamId = e.target.value;
+    const participantsSelect = document.getElementById('participantsSelect').tomselect;
+    const userBranch = localStorage.getItem('branch_id');
+
+    participantsSelect.clearOptions();
+
+    if (!selectedTeamId) {
+        // Nếu bỏ chọn team thì load lại tất cả
+        allUsers.forEach(u => {
+            participantsSelect.addOption({ value: u.id, text: `${u.full_name} - ${u.department}` });
+        });
+        participantsSelect.refreshOptions(false);
+        return;
+    }
+
+    // ✅ Chỉ lọc người cùng team + cùng chi nhánh
+    const filtered = allUsers.filter(u =>
+        String(u.team_id) === String(selectedTeamId) &&
+        String(u.branch_id) === String(userBranch)
+    );
+
+    filtered.forEach(u => {
+        participantsSelect.addOption({ value: u.id, text: `${u.full_name} - ${u.department}` });
+    });
+    participantsSelect.refreshOptions(false);
+});
 
 // Xử lý submit form đặt phòng
 async function handleBooking(e) {
@@ -191,22 +226,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const res = await fetch('/api/bookings');
                 if (!res.ok) throw new Error('Không tải được lịch');
                 const data = await res.json();
-                const events = data.map(b => {
-                    let color = '#4e73df';
-                    if (b.room_id === 'R002') color = '#1cc88a';
-                    else if (b.room_id === 'R003') color = '#36b9cc';
-                    return {
-                        title: b.title,
-                        start: b.start_time,
-                        end: b.end_time,
-                        backgroundColor: color,
-                        borderColor: color,
-                        extendedProps: {
-                            room: b.room_name,
-                            bookedBy: b.booked_by
-                        }
-                    };
-                });
+                const events = data.map(b => ({
+                    title: b.title,
+                    start: b.start_time,
+                    end: b.end_time,
+                    backgroundColor: '#4e73df',
+                    borderColor: '#4e73df',
+                    extendedProps: {
+                        room: b.room_name,
+                        bookedBy: b.booked_by
+                    }
+                }));
                 successCallback(events);
             } catch (err) {
                 console.error(err);

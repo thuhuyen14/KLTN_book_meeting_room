@@ -15,7 +15,8 @@ router.post("/login", async (req, res) => {
         u.username,
         u.password_hash,
         r.name AS role,
-        p.full_name
+        p.full_name,
+        p.branch_id as branch_id
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
       LEFT JOIN user_profiles p ON u.id = p.user_id
@@ -28,6 +29,8 @@ router.post("/login", async (req, res) => {
     }
 
     const user = rows[0];
+        // debug: in ra server console để kiểm tra dữ liệu trả về
+    // console.log('LOGIN ROW:', user);  
     const match = await bcrypt.compare(password, user.password_hash);
 
     if (!match) {
@@ -41,7 +44,8 @@ res.json({
   role: user.role,
   id: user.id,
   username: user.username,
-  full_name: user.full_name || null
+  full_name: user.full_name || null,
+  branch_id: user.branch_id || null
 });
   } catch (err) {
     console.error(err);

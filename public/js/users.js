@@ -17,13 +17,14 @@ async function loadUsers() {
                 <td>${u.email || ''}</td>
                 <td>${u.department || ''}</td>
                 <td>${u.job_title || ''}</td>
+                <td>${u.branch_name || ''}</td>
             `;
             tbody.appendChild(tr);
         });
     } catch (err) {
         console.error('Lỗi load users:', err);
         const tbody = document.querySelector('#usersTable tbody');
-        tbody.innerHTML = `<tr><td colspan="5" class="text-danger">Không tải được dữ liệu</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-danger">Không tải được dữ liệu</td></tr>`;
     }
 }
 // Hàm bỏ dấu tiếng Việt

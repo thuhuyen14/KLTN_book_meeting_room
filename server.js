@@ -49,12 +49,15 @@ app.get('/api/users', async (req, res) => {
       up.full_name, 
       up.email,
       d.name AS department,
-      j.name AS job_title
+      j.name AS job_title,
+      b.id AS branch_id,
+      b.name AS branch_name
       FROM users u
       LEFT JOIN user_profiles up ON u.id = up.user_id
       LEFT JOIN departments d ON u.department_id = d.id
       LEFT JOIN job_titles j ON u.job_title_id = j.id
-      ORDER BY id
+      LEFT JOIN branches b ON up.branch_id = b.id
+      ORDER BY u.id
     `);
     res.json(rows);
   } catch (err) {
@@ -294,7 +297,8 @@ app.get('/api/available', async (req, res) => {
             r.image,
             rt.description AS room_description,
             rt.default_capacity AS capacity,
-            CONCAT('Tầng ', l.floor, ' - ', b.name) AS location_name
+            CONCAT('Tầng ', l.floor, ' - ', b.name) AS location_name,
+            b.id AS branch_id
           FROM rooms r
           LEFT JOIN room_types rt ON r.room_type_id = rt.id
           LEFT JOIN locations l ON r.location_id = l.id

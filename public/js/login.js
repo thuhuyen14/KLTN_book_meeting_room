@@ -18,6 +18,8 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     localStorage.setItem("full_name", data.full_name);
     localStorage.setItem("role", data.role);
     localStorage.setItem("id", data.id);
+    console.log('LOGIN DATA:', data);
+    localStorage.setItem('branch_id', data.branch_id);
 
 
     if (data.role === "admin") {
