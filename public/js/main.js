@@ -41,3 +41,46 @@ document.addEventListener("DOMContentLoaded", () => {
     `;
   }
 });
+// ---- Notification ----
+const notifBell = document.getElementById('notification-bell');
+const notifDropdown = document.getElementById('notification-dropdown');
+const notifList = document.getElementById('notification-list');
+const notifCount = document.getElementById('notification-count');
+
+async function loadNotifications() {
+  const userId = localStorage.getItem('id'); // ID người đăng nhập
+  if (!userId) return;
+
+  try {
+    const res = await fetch(`/api/notifications/${userId}`);
+    if (!res.ok) throw new Error('Không tải được thông báo');
+    const data = await res.json();
+
+    notifList.innerHTML = '';
+    if (data.length === 0) {
+      notifList.innerHTML = '<li>Chưa có thông báo nào</li>';
+      notifCount.textContent = '0';
+    } else {
+      notifCount.textContent = data.length;
+      data.forEach(n => {
+        const li = document.createElement('li');
+        li.textContent = `${new Date(n.created_at).toLocaleString()} - ${n.message}`;
+        notifList.appendChild(li);
+      });
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+// Toggle dropdown
+notifBell.addEventListener('click', () => {
+  notifDropdown.classList.toggle('d-none');
+});
+
+// Load thông báo khi mở trang
+loadNotifications();
+
+// (Tuỳ chọn) Refresh định kỳ mỗi 60s
+setInterval(loadNotifications, 60000);
+

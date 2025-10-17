@@ -201,6 +201,15 @@ app.post('/api/book', async (req, res) => {
           'INSERT INTO participants (booking_id, user_id, team_id) VALUES ?',
           [values]
         );
+        // Gửi thông báo cho từng member
+        const notifValues = members.map(m => [
+          m.id,
+          `Bạn đã được thêm vào cuộc họp: "${title}" lúc ${start_time}`
+        ]);
+        await conn.query(
+          'INSERT INTO notifications (user_id, message) VALUES ?',
+          [notifValues]
+        );
       }
     }
         // ➕ Thêm người tham dự lẻ (nếu có)
@@ -210,8 +219,16 @@ app.post('/api/book', async (req, res) => {
         'INSERT INTO participants (booking_id, user_id, team_id) VALUES ? ON DUPLICATE KEY UPDATE booking_id = booking_id',
         [values]
       );
+            // Gửi thông báo cho từng participant
+      const notifValues = participants.map(uid => [
+        uid,
+        `Bạn đã được thêm vào cuộc họp: "${title}" lúc ${start_time}`
+      ]);
+      await conn.query(
+        'INSERT INTO notifications (user_id, message) VALUES ?',
+        [notifValues]
+      );
     }
-
     // → Luôn thêm organizer (tránh trùng với team đã thêm)
     await conn.query(
       'INSERT INTO participants (booking_id, user_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE booking_id=booking_id',
@@ -233,6 +250,20 @@ app.post('/api/book', async (req, res) => {
     res.status(500).json({ error: 'Lỗi server' });
   } finally {
     conn.release();
+  }
+});
+
+// Lấy thông báo cho user (MySQL)
+app.get('/api/notifications/:userId', async (req, res) => {
+  const userId = req.params.userId;
+  try {
+    const [rows] = await db.query(
+      'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC',
+      [userId]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
