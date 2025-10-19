@@ -170,18 +170,24 @@
       accountMenu.style.display = "none";
     }
 
-    // Xử lý logout
-    document.getElementById("logoutBtn").addEventListener("click", () => {
-      localStorage.removeItem("token");
-      localStorage.removeItem("role");
-      
-      // Ẩn menu tài khoản, hiện lại nút login
-      loginBtn.style.display = "block";
-      accountMenu.style.display = "none";
+  //   // ✅ Xử lý logout
+  //   document.getElementById("logoutBtn").addEventListener("click", () => {
+  //     // Xóa toàn bộ thông tin phiên cũ
+  //     localStorage.clear();
+  //     sessionStorage.clear();
 
-      // Ở lại trang hiện tại (index.html), không redirect
-    });
-  </script>
+  //     // Ẩn menu tài khoản, hiện lại nút login
+  //     loginBtn.style.display = "block";
+  //     accountMenu.style.display = "none";
+
+  //     // ✅ Xóa thông báo còn sót lại (nếu có)
+  //     const notifContainer = document.getElementById("notificationContainer");
+  //     if (notifContainer) notifContainer.innerHTML = "";
+
+  //     // 👉 Chuyển hướng về trang đăng nhập (chuẩn UX)
+  //     window.location.href = "login.html";
+  //   });
+  // </script>
 
   <script src="js/main.js"></script>
 </body>

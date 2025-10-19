@@ -196,8 +196,30 @@ app.post('/api/book', async (req, res) => {
 
     // 4️⃣ Thêm người tham dự
     if (team_id) {
-      // → Thêm tất cả thành viên team
-      const [members] = await conn.query('SELECT id FROM users WHERE team_id = ?', [team_id]);
+      // Lấy chi nhánh của người tạo booking
+      const [creatorInfo] = await conn.query(
+        `
+        SELECT 
+        id,
+        branch_id
+        FROM users
+        LEFT JOIN user_profiles ON users.id = user_profiles.user_id
+        WHERE id = ?
+        `,
+        [user_id] // id người tạo booking
+      );
+      const userBranchId = creatorInfo[0]?.branch_id;
+
+      // Lấy thành viên trong team nhưng cùng chi nhánh
+      const [members] = await conn.query(
+        `
+        SELECT id, branch_id
+        FROM users
+        LEFT JOIN user_profiles ON users.id = user_profiles.user_id
+        WHERE team_id = ? AND branch_id = ?
+        `,
+        [team_id, userBranchId]
+      );
       if (members.length > 0) {
         const values = members.map(m => [bookingId, m.id, team_id]);
         await conn.query(

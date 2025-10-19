@@ -1,13 +1,15 @@
-// js/main.js
+// ==============================
+// 🟦 XỬ LÝ LOGIN / LOGOUT & MENU
+// ==============================
 document.addEventListener("DOMContentLoaded", () => {
   const token = localStorage.getItem("token");
   const role = localStorage.getItem("role");
-  const username = localStorage.getItem("username"); // nếu bạn có lưu sau khi login
   const full_name = localStorage.getItem("full_name");
   const userMenu = document.getElementById("userMenu");
 
-  if (!userMenu) return; // nếu trang không có userMenu thì bỏ qua
+  if (!userMenu) return;
 
+  // Nếu đã đăng nhập -> hiển thị menu tài khoản
   if (token) {
     userMenu.innerHTML = `
       <li class="nav-item dropdown">
@@ -27,21 +29,37 @@ document.addEventListener("DOMContentLoaded", () => {
     const logoutBtn = document.getElementById("logoutBtn");
     if (logoutBtn) {
       logoutBtn.addEventListener("click", () => {
-        localStorage.removeItem("token");
-        localStorage.removeItem("role");
-        localStorage.removeItem("username");
-        window.location.href = "index.html";
+        // Xóa toàn bộ dữ liệu phiên
+        localStorage.clear();
+        sessionStorage.clear();
+
+        // Reset menu & thông báo
+        userMenu.innerHTML = `<li class="nav-item"><a class="btn btn-outline-light ms-2" href="login.html">Đăng nhập</a></li>`;
+        const notifList = document.getElementById("notification-list");
+        const notifCount = document.getElementById("notification-count");
+        if (notifList) notifList.innerHTML = '<li>Chưa có thông báo nào</li>';
+        if (notifCount) notifCount.textContent = '0';
+
+        // Vẫn ở index.html, không redirect
       });
     }
   } else {
-    userMenu.innerHTML = `
-      <li class="nav-item">
-        <a class="btn btn-outline-light ms-2" href="login.html">Đăng nhập</a>
-      </li>
-    `;
+    // Nếu chưa đăng nhập -> hiển thị nút đăng nhập
+    userMenu.innerHTML = `<li class="nav-item"><a class="btn btn-outline-light ms-2" href="login.html">Đăng nhập</a></li>`;
+  }
+
+  // ===== 3️⃣ Kiểm tra quyền truy cập trang khác =====
+  const protectedPages = ["profile.html", "booking.html", "other.html"]; // danh sách các trang cần login
+  const currentPage = window.location.pathname.split("/").pop();
+  if (!token && protectedPages.includes(currentPage)) {
+    alert("Vui lòng đăng nhập để sử dụng tính năng này");
+    window.location.href = "login.html"; // redirect về login
   }
 });
-// ---- Notification ----
+
+// ==============================
+// 🟨 THÔNG BÁO NGƯỜI DÙNG (Notification)
+// ==============================
 const notifBell = document.getElementById('notification-bell');
 const notifDropdown = document.getElementById('notification-dropdown');
 const notifList = document.getElementById('notification-list');
@@ -49,7 +67,7 @@ const notifCount = document.getElementById('notification-count');
 
 async function loadNotifications() {
   const userId = localStorage.getItem('id'); // ID người đăng nhập
-  if (!userId) return;
+  if (!userId || !notifList || !notifCount) return;
 
   try {
     const res = await fetch(`/api/notifications/${userId}`);
@@ -69,18 +87,18 @@ async function loadNotifications() {
       });
     }
   } catch (err) {
-    console.error(err);
+    console.error('Lỗi khi tải thông báo:', err);
   }
 }
 
-// Toggle dropdown
-notifBell.addEventListener('click', () => {
-  notifDropdown.classList.toggle('d-none');
-});
+if (notifBell && notifDropdown) {
+  notifBell.addEventListener('click', () => {
+    notifDropdown.classList.toggle('d-none');
+  });
+}
 
 // Load thông báo khi mở trang
 loadNotifications();
 
-// (Tuỳ chọn) Refresh định kỳ mỗi 60s
+// Refresh định kỳ mỗi 60s
 setInterval(loadNotifications, 60000);
-
