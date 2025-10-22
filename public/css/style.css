@@ -175,3 +175,75 @@ img{max-width:100%;height:auto;}
 #notification-count {
   font-size: 0.7rem;
 }
+/* Container lịch cá nhân */
+.personal-schedule {
+  position: relative;
+  height: 500px;           /* chiều cao khung */
+  border: 1px solid #ccc;
+  margin-top: 1rem;
+  padding: 5px;
+  overflow-y: auto;        /* cuộn dọc */
+  overflow-x: auto;        /* cuộn ngang nếu vượt rộng */
+  background-color: #fafafa;
+}
+
+/* Cột ngày trong tháng */
+.day-column {
+  min-width: 150px;
+  border-right: 1px solid #ddd;
+  position: relative;
+  box-sizing: border-box;
+  padding: 2px;
+}
+
+/* Các event */
+.personal-event {
+  position: absolute;
+  background-color: #0d6efd;
+  color: white;
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-size: 0.8rem;
+  line-height: 1.2em;
+  white-space: pre-line;   /* xuống dòng nếu có \n */
+  overflow: visible;       /* không cắt text */
+  text-overflow: clip;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+/* Hover event */
+.personal-event:hover {
+  background-color: #084298;
+}
+
+/* Cột giờ cố định bên trái */
+.hour-labels {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 50px;
+  height: 100%;
+  background: #f9f9f9;
+  border-right: 1px solid #ddd;
+  z-index: 10;
+}
+
+/* Nhãn giờ */
+.hour-labels div {
+  position: absolute;
+  font-size: 0.75rem;
+  color: #555;
+  text-align: right;
+  right: 5px;
+}
+
+/* Header ngày */
+.day-header {
+  text-align: center;
+  font-weight: bold;
+  background: #f8f9fa;
+  border-bottom: 1px solid #ccc;
+  font-size: 0.85rem;
+  padding: 2px 0;
+}

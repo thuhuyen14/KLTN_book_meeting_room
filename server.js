@@ -337,6 +337,47 @@ app.get('/api/available', async (req, res) => {
         res.status(500).json({ error: 'Lỗi server' });
     }
 });
+app.get('/api/bookings/personal/:userId', async (req, res) => {
+  console.log("📥 personal bookings called:", req.params, req.query);
+  const userId = req.params.userId;
+  const { start, end } = req.query;
+
+  try {
+    // 👉 Chuyển ISO UTC (có Z) sang múi giờ Việt Nam rồi lấy ngày chính xác
+    const startVN = new Date(start);
+    const endVN = new Date(end);
+
+    // cộng thêm 7 tiếng để từ UTC → GMT+7
+    startVN.setHours(startVN.getHours() + 7);
+    endVN.setHours(endVN.getHours() + 7);
+
+    const startDateStr = startVN.toISOString().split('T')[0];
+    const endDateStr = endVN.toISOString().split('T')[0];
+
+    const startDatetime = `${startDateStr} 00:00:00`;
+    const endDatetime = `${endDateStr} 23:59:59`;
+
+    console.log("🕓 Converted range:", { startDatetime, endDatetime });
+
+    const [rows] = await db.query(
+      `SELECT DISTINCT b.*, r.name AS room_name
+       FROM bookings b
+       LEFT JOIN participants p ON p.booking_id = b.id
+       LEFT JOIN rooms r ON b.room_id = r.id
+       WHERE (b.user_id = ? OR p.user_id = ?)
+         AND NOT (b.end_time < ? OR b.start_time > ?)
+       ORDER BY b.start_time`,
+      [userId, userId, startDatetime, endDatetime]
+    );
+
+    console.log(`✅ Found ${rows.length} bookings`);
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Lỗi lấy bookings personal:', err);
+    res.status(500).json({ error: 'Lỗi server' });
+  }
+});
+
 
 // Phòng nào được book nhiều nhất (MySQL)
 app.get('/api/report/rooms', async (req, res) => {
