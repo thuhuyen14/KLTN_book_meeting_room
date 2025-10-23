@@ -82,6 +82,95 @@ app.put('/api/rooms/:id', async (req, res) => {
     res.status(500).json({ error: 'Lỗi khi cập nhật phòng' });
   }
 });
+// API thêm phòng
+app.post('/api/rooms', async (req, res) => {
+  const { id, name, room_type_id, location_id, image } = req.body;
+
+  try {
+    // Thêm phòng vào DB
+    await db.query(
+      `INSERT INTO rooms (id, name, room_type_id, location_id, image)
+       VALUES (?, ?, ?, ?, ?)`,
+      [id, name, room_type_id, location_id, image]
+    );
+
+    // Ghi log
+    await db.query(
+      `INSERT INTO audit_log (entity_type, entity_id, action, old_data, new_data, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        'room',
+        id,
+        'insert',
+        null,
+        JSON.stringify({ id, name, room_type_id, location_id, image }),
+        req.user?.email || 'admin_demo'
+      ]
+    );
+
+    res.json({ success: true, message: 'Thêm phòng thành công!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Lỗi khi thêm phòng' });
+  }
+});
+// API xóa phòng
+app.delete('/api/rooms/:id', async (req, res) => {
+  const roomId = req.params.id;
+
+  try {
+    // Lấy dữ liệu cũ để ghi log
+    const [oldRows] = await db.query('SELECT * FROM rooms WHERE id = ?', [roomId]);
+    if (oldRows.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy phòng' });
+    }
+    const oldData = oldRows[0];
+
+    // Xóa phòng
+    await db.query('DELETE FROM rooms WHERE id = ?', [roomId]);
+
+    // Ghi log
+    await db.query(
+      `INSERT INTO audit_log (entity_type, entity_id, action, old_data, new_data, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        'room',
+        roomId,
+        'delete',
+        JSON.stringify(oldData),
+        null,
+        req.user?.email || 'admin_demo'
+      ]
+    );
+
+    res.json({ success: true, message: 'Xóa phòng thành công!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Lỗi khi xóa phòng' });
+  }
+});
+app.get('/api/room_types', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id, description FROM room_types ORDER BY id');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/locations', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT l.id, l.floor, b.name AS branch_name
+      FROM locations l
+      LEFT JOIN branches b ON l.branch_id = b.id
+      ORDER BY l.floor, b.name
+    `);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 
 // API: users (MySQL)

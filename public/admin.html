@@ -9,6 +9,77 @@
  <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
 </head>
+<!-- Modal Sửa phòng -->
+<div class="modal fade" id="editRoomModal" tabindex="-1" aria-labelledby="editRoomModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editRoomModalLabel">Sửa phòng</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editRoomId">
+        <div class="mb-3">
+          <label for="editRoomName" class="form-label">Tên phòng</label>
+          <input type="text" class="form-control" id="editRoomName" placeholder="Tên phòng">
+        </div>
+        <div class="mb-3">
+          <label for="editRoomImage" class="form-label">URL ảnh</label>
+          <input type="text" class="form-control" id="editRoomImage" placeholder="URL ảnh">
+        </div>
+        <!-- Có thể thêm input cho room_type_id, location_id nếu cần -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        <button type="button" id="saveRoomBtn" class="btn btn-primary">Lưu</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Thêm phòng -->
+<div class="modal fade" id="addRoomModal" tabindex="-1" aria-labelledby="addRoomModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="addRoomModalLabel">Thêm phòng mới</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label for="newRoomId" class="form-label">Mã phòng</label>
+          <input type="text" class="form-control" id="newRoomId" placeholder="VD: R101">
+        </div>
+        <div class="mb-3">
+          <label for="newRoomName" class="form-label">Tên phòng</label>
+          <input type="text" class="form-control" id="newRoomName" placeholder="Tên phòng">
+        </div>
+        <div class="mb-3">
+          <label for="newRoomType" class="form-label">Loại phòng</label>
+          <select id="newRoomType" class="form-select">
+            <option value="">-- Chọn loại phòng --</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="newRoomLocation" class="form-label">Vị trí</label>
+          <select id="newRoomLocation" class="form-select">
+            <option value="">-- Chọn tầng & chi nhánh --</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label for="newRoomImage" class="form-label">URL ảnh</label>
+          <input type="text" class="form-control" id="newRoomImage" placeholder="URL ảnh">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+        <button type="button" id="createRoomBtn" class="btn btn-primary">Thêm phòng</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <body>
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container"> 
