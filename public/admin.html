@@ -58,8 +58,33 @@
   <main class="container my-4">
     <h2>Quản trị cơ bản</h2>
     <p>Ghi chú: trang admin demo này chỉ hiển thị dữ liệu phòng. Thêm/sửa/xóa phòng cần mở rộng backend nếu cần.</p>
-    <div id="roomsAdmin" class="row g-3"></div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs" id="adminTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="rooms-tab" data-bs-toggle="tab" data-bs-target="#roomsTab" type="button" role="tab">Phòng</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#usersTab" type="button" role="tab">Nhân viên</button>
+      </li>
+    </ul>
+
+    <div class="tab-content mt-3">
+      <!-- Tab phòng -->
+      <div class="tab-pane fade show active" id="roomsTab" role="tabpanel">
+        <div id="roomsAdmin" class="row g-3"></div>
+        <button class="btn btn-primary mt-3" id="addRoomBtn">Thêm phòng</button>
+      </div>
+
+      <!-- Tab nhân viên -->
+      <div class="tab-pane fade" id="usersTab" role="tabpanel">
+        <div id="usersAdmin">
+          <p>Đang tải danh sách nhân viên...</p>
+        </div>
+      </div>
+    </div>
   </main>
+
 
   <footer class="bg-dark text-white text-center py-3 mt-5">
     &copy; 2025 DNSE
@@ -112,6 +137,7 @@
       // Ở lại trang hiện tại (index.html), không redirect
     });
   </script>
+  <script src="js/admin.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

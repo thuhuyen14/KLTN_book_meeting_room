@@ -41,6 +41,49 @@ app.get('/api/rooms', async (req, res) => {
   }
 });
 
+// API cập nhật thông tin phòng
+app.put('/api/rooms/:id', async (req, res) => {
+  const roomId = req.params.id;
+  const { name, room_type_id, location_id, image } = req.body;
+
+  try {
+    // Lấy dữ liệu cũ để ghi log
+    const [oldRows] = await db.query('SELECT * FROM rooms WHERE id = ?', [roomId]);
+    if (oldRows.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy phòng' });
+    }
+    const oldData = oldRows[0];
+
+    // Cập nhật phòng
+    await db.query(
+      `UPDATE rooms 
+       SET name = ?, room_type_id = ?, location_id = ?, image = ?
+       WHERE id = ?`,
+      [name, room_type_id, location_id, image, roomId]
+    );
+
+    // Ghi log
+    await db.query(
+      `INSERT INTO audit_log (entity_type, entity_id, action, old_data, new_data, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        'room',
+        roomId,
+        'update',
+        JSON.stringify(oldData),
+        JSON.stringify({ name, room_type_id, location_id, image }),
+        req.user?.email || 'admin_demo'
+      ]
+    );
+
+    res.json({ success: true, message: 'Cập nhật phòng thành công!' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Lỗi khi cập nhật phòng' });
+  }
+});
+
+
 // API: users (MySQL)
 app.get('/api/users', async (req, res) => {
   try {
