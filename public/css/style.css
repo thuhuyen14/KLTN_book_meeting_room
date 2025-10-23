@@ -247,3 +247,14 @@ img{max-width:100%;height:auto;}
   font-size: 0.85rem;
   padding: 2px 0;
 }
+#roomsAdmin .card {
+    height: 380px; /* đặt chiều cao cố định */
+    overflow: hidden; /* ẩn phần tràn */
+    display: flex;
+    flex-direction: column;
+}
+
+#roomsAdmin .card img {
+    height: 200px; /* cố định chiều cao ảnh */
+    object-fit: cover; /* crop ảnh vừa khung */
+}
