@@ -1,4 +1,17 @@
 require('dotenv').config();
+process.env.TZ = 'Asia/Ho_Chi_Minh';
+function formatVietnamTime(dateString) {
+  const date = new Date(dateString);
+  return date.toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
+}
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
@@ -182,11 +195,13 @@ app.get('/api/users', async (req, res) => {
       up.email,
       d.name AS department,
       j.name AS job_title,
+      t.name AS team,
       b.id AS branch_id,
       b.name AS branch_name
       FROM users u
       LEFT JOIN user_profiles up ON u.id = up.user_id
       LEFT JOIN departments d ON u.department_id = d.id
+      LEFT JOIN teams t ON u.team_id = t.id
       LEFT JOIN job_titles j ON u.job_title_id = j.id
       LEFT JOIN branches b ON up.branch_id = b.id
       ORDER BY u.id
@@ -361,7 +376,7 @@ app.post('/api/book', async (req, res) => {
         // Gửi thông báo cho từng member
         const notifValues = members.map(m => [
           m.id,
-          `Bạn đã được thêm vào cuộc họp: "${title}" lúc ${start_time}`
+          `Bạn đã được thêm vào cuộc họp: "${title}" lúc ${formatVietnamTime(start_time)}`
         ]);
         await conn.query(
           'INSERT INTO notifications (user_id, message) VALUES ?',
@@ -379,7 +394,7 @@ app.post('/api/book', async (req, res) => {
             // Gửi thông báo cho từng participant
       const notifValues = participants.map(uid => [
         uid,
-        `Bạn đã được thêm vào cuộc họp: "${title}" lúc ${start_time}`
+        `Bạn đã được thêm vào cuộc họp: "${title}" lúc ${formatVietnamTime(start_time)}`
       ]);
       await conn.query(
         'INSERT INTO notifications (user_id, message) VALUES ?',
@@ -390,6 +405,11 @@ app.post('/api/book', async (req, res) => {
     await conn.query(
       'INSERT INTO participants (booking_id, user_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE booking_id=booking_id',
       [bookingId, user_id]
+    );
+    // ✅ Gửi thông báo cho organizer
+    await conn.query(
+      'INSERT INTO notifications (user_id, message) VALUES (?, ?)',
+      [user_id, `Bạn đã tạo cuộc họp: "${title}" lúc ${formatVietnamTime(start_time)}`]
     );
 
     // 5️⃣ Trả về booking vừa tạo
@@ -470,7 +490,7 @@ app.get('/api/available', async (req, res) => {
     }
 });
 app.get('/api/bookings/personal/:userId', async (req, res) => {
-  console.log("📥 personal bookings called:", req.params, req.query);
+  // console.log("📥 personal bookings called:", req.params, req.query);
   const userId = req.params.userId;
   const { start, end } = req.query;
 
@@ -489,7 +509,7 @@ app.get('/api/bookings/personal/:userId', async (req, res) => {
     const startDatetime = `${startDateStr} 00:00:00`;
     const endDatetime = `${endDateStr} 23:59:59`;
 
-    console.log("🕓 Converted range:", { startDatetime, endDatetime });
+    // console.log("🕓 Converted range:", { startDatetime, endDatetime });
 
     const [rows] = await db.query(
       `SELECT DISTINCT b.*, r.name AS room_name
@@ -502,7 +522,7 @@ app.get('/api/bookings/personal/:userId', async (req, res) => {
       [userId, userId, startDatetime, endDatetime]
     );
 
-    console.log(`✅ Found ${rows.length} bookings`);
+    // console.log(`✅ Found ${rows.length} bookings`);
     res.json(rows);
   } catch (err) {
     console.error('❌ Lỗi lấy bookings personal:', err);

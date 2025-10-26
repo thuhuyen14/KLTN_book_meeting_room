@@ -16,6 +16,7 @@ async function loadUsers() {
                 <td>${u.full_name || ''}</td>
                 <td>${u.email || ''}</td>
                 <td>${u.department || ''}</td>
+                <td>${u.team || ''}</td>
                 <td>${u.job_title || ''}</td>
                 <td>${u.branch_name || ''}</td>
             `;

@@ -81,10 +81,30 @@ async function loadNotifications() {
     } else {
       notifCount.textContent = data.length;
       data.forEach(n => {
-        const li = document.createElement('li');
-        li.textContent = `${new Date(n.created_at).toLocaleString()} - ${n.message}`;
-        notifList.appendChild(li);
-      });
+      const li = document.createElement('li');
+      try {
+        const createdAt = new Date(n.created_at);
+        if (isNaN(createdAt)) throw new Error('Invalid date');
+        
+        const formattedDate = createdAt.toLocaleString('vi-VN', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        });
+        
+        li.textContent = `${formattedDate} - ${n.message}`;
+      } catch (err) {
+        console.warn('Lỗi format thời gian:', err, n.created_at);
+        // fallback nếu có lỗi định dạng
+        li.textContent = `${n.created_at} - ${n.message}`;
+      }
+      notifList.appendChild(li);
+    });
+
     }
   } catch (err) {
     console.error('Lỗi khi tải thông báo:', err);
