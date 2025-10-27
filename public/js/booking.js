@@ -289,8 +289,9 @@ document.getElementById('start').addEventListener('change', () => {
 
         endInput.value = isoLocal;
 
-    endInput.value = iso;
-
     // Chuyển con trỏ focus sang ô kết thúc để tiện chỉnh lại giờ
     endInput.focus();
+      setTimeout(() => {
+    loadAvailableRooms();
+  }, 100);
 });
