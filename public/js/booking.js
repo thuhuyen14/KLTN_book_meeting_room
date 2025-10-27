@@ -268,5 +268,29 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Event listeners
 document.getElementById('bookForm').addEventListener('submit', handleBooking);
-document.getElementById('start').addEventListener('change', loadAvailableRooms);
-document.getElementById('end').addEventListener('change', loadAvailableRooms);
+// document.getElementById('start').addEventListener('change', loadAvailableRooms);
+// document.getElementById('end').addEventListener('change', loadAvailableRooms);
+// Khi người dùng chọn thời gian bắt đầu, tự động set thời gian kết thúc cùng ngày (+1 giờ)
+document.getElementById('start').addEventListener('change', () => {
+    const startInput = document.getElementById('start');
+    const endInput = document.getElementById('end');
+
+    if (!startInput.value) return;
+
+    const startTime = new Date(startInput.value);
+
+    // Nếu chưa chọn kết thúc hoặc khác ngày thì auto set cùng ngày, +1 giờ
+    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // +1 giờ
+    const isoLocal = endTime.getFullYear() + '-' +
+        String(endTime.getMonth() + 1).padStart(2, '0') + '-' +
+        String(endTime.getDate()).padStart(2, '0') + 'T' +
+        String(endTime.getHours()).padStart(2, '0') + ':' +
+        String(endTime.getMinutes()).padStart(2, '0');
+
+        endInput.value = isoLocal;
+
+    endInput.value = iso;
+
+    // Chuyển con trỏ focus sang ô kết thúc để tiện chỉnh lại giờ
+    endInput.focus();
+});
