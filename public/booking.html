@@ -105,19 +105,18 @@
               <option value="">Chọn nhân viên</option>
             </select>
           </div>
+
           <div class="mb-3">
             <label for="teamSelect" class="form-label">Chọn Team</label>
-            <select id="teamSelect" class="form-select">
-              <option value="">-- Không chọn --</option>
-            </select>
-            <div class="form-text">Chọn 1 team để thêm tất cả thành viên team vào danh sách tham dự.</div>
+            <select id="teamSelect" multiple placeholder="Chọn 1 hoặc nhiều team..."></select>
+            <div class="form-text">Bạn có thể chọn nhiều team.</div>
           </div>
+
           <div class="mb-3">
             <label for="participantsSelect">Người tham dự</label>
             <select id="participantsSelect" multiple class="form-control" style="height: 150px;"></select>
-              <!-- Sẽ load toàn bộ danh sách nhân viên ở đây -->
-            </select>
           </div>
+          
           <div id="result" class="mb-3"></div>
           <button class="btn btn-primary">Đặt</button>
         </form>
