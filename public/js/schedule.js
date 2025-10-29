@@ -1,4 +1,4 @@
-// 🌐 Hàm gọi API chung
+// 🌐 Hàm gọi API chung (dùng cho endpoints có prefix '/api')
 async function api(path, opts = {}) {
   const res = await fetch('/api' + path, opts);
   if (!res.ok) throw new Error(await res.text());
@@ -12,7 +12,7 @@ async function load() {
   roomFilter.innerHTML = '<option value="">-- Tất cả phòng --</option>';
   rooms.forEach(r => {
     const opt = document.createElement('option');
-    opt.value = r.id;
+    opt.value = String(r.id);
     opt.textContent = r.name;
     roomFilter.appendChild(opt);
   });
@@ -23,7 +23,7 @@ async function load() {
     editRoomSelect.innerHTML = '';
     rooms.forEach(r => {
       const opt = document.createElement('option');
-      opt.value = r.id;
+      opt.value = String(r.id);
       opt.textContent = r.name;
       editRoomSelect.appendChild(opt);
     });
@@ -45,10 +45,14 @@ let teamSelectTom, participantSelectTom;
 async function loadTeamsAndParticipants() {
   try {
     const teams = await api('/teams');
-    allTeams = teams;
+    allTeams = teams || [];
 
     const users = await api('/users');
-    allParticipants = users;
+    // chuẩn hóa cấu trúc user để client dễ dùng
+    allParticipants = (users || []).map(u => ({
+      id: String(u.id ?? u.user_id ?? u.userId),
+      name: u.full_name || u.name || u.fullName || u.email || ('User ' + (u.id ?? ''))
+    }));
 
     if (!teamSelectTom) {
       teamSelectTom = new TomSelect('#editTeamSelect', { plugins: ['remove_button'] });
@@ -61,40 +65,104 @@ async function loadTeamsAndParticipants() {
   }
 }
 
-// 🧠 Format UTC → local
-function formatLocalDatetime(utcString) {
-  const date = new Date(utcString);
-  date.setHours(date.getHours() + 7);
-  return date.toISOString().slice(0, 16);
+// 🧠 Format datetime an toàn (chấp nhận Date, ISO, hoặc MySQL "YYYY-MM-DD HH:mm:ss")
+function formatLocalDatetime(dt) {
+  if (!dt) return '';
+  let dateObj;
+  try {
+    if (dt instanceof Date) {
+      dateObj = dt;
+    } else if (typeof dt === 'string') {
+      // nếu chuỗi có format "YYYY-MM-DD HH:mm:ss" -> chuyển thành ISO-like "YYYY-MM-DDTHH:mm:ss"
+      // nếu đã là ISO thì replace sẽ vẫn hợp lý
+      const s = dt.includes(' ') && !dt.includes('T') ? dt.replace(' ', 'T') : dt;
+      dateObj = new Date(s);
+    } else {
+      dateObj = new Date(dt);
+    }
+  } catch (e) {
+    return '';
+  }
+
+  if (isNaN(dateObj.getTime())) return '';
+
+  // convert to local "YYYY-MM-DDTHH:mm" for <input type=datetime-local>
+  const tzOffset = dateObj.getTimezoneOffset();
+  const local = new Date(dateObj.getTime() - tzOffset * 60000);
+  return local.toISOString().slice(0, 16);
 }
 
-// 🧠 Mở modal sửa
-function openEditModal(booking) {
+// 🧠 Parse datetime từ input (để gửi lên server nếu cần)
+function parseInputDatetimeToUTCString(localValue) {
+  // localValue is "YYYY-MM-DDTHH:mm"
+  if (!localValue) return null;
+  const date = new Date(localValue);
+  if (isNaN(date.getTime())) return null;
+  // convert back to ISO (server side should handle)
+  return date.toISOString();
+}
+
+// 🧠 Mở modal sửa (nhận bookingId)
+async function openEditModal(bookingId) {
   if (!teamSelectTom || !participantSelectTom) {
     alert("Dữ liệu chưa tải xong, thử lại sau.");
     return;
   }
 
-  document.getElementById('editBookingId').value = booking.id;
-  document.getElementById('editTitle').value = booking.title;
-  document.getElementById('editRoom').value = booking.room_id;
-  document.getElementById('editStart').value = formatLocalDatetime(booking.start_time);
-  document.getElementById('editEnd').value = formatLocalDatetime(booking.end_time);
+  try {
+    // fetch chi tiết booking
+    const res = await fetch(`/api/bookings/${bookingId}/detail`);
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`Server trả lỗi ${res.status}: ${txt}`);
+    }
+    const booking = await res.json();
 
-  // Fill team
-  teamSelectTom.clearOptions();
-  allTeams.forEach(team => teamSelectTom.addOption({ value: team.id, text: team.name }));
-  teamSelectTom.clear();
-  if (booking.teams?.length) teamSelectTom.setValue(booking.teams);
+    if (!booking || booking.error) {
+      throw new Error(booking?.error || 'Không lấy được booking');
+    }
 
-  // Fill participants
-  participantSelectTom.clearOptions();
-  allParticipants.forEach(u => participantSelectTom.addOption({ value: u.id, text: u.name }));
-  participantSelectTom.clear();
-  if (booking.participants?.length) participantSelectTom.setValue(booking.participants);
+    // debug (giúp nếu server trả format lạ)
+    console.log('Booking raw:', booking);
+    console.log('start_time raw:', booking.start_time, typeof booking.start_time);
+    console.log('participants raw:', booking.participants);
+    console.log('teams raw:', booking.teams);
 
-  const modal = new bootstrap.Modal(document.getElementById('editBookingModal'));
-  modal.show();
+    document.getElementById('editBookingId').value = booking.id;
+    document.getElementById('editTitle').value = booking.title || '';
+    document.getElementById('editRoom').value = String(booking.room_id ?? '');
+
+    document.getElementById('editStart').value = formatLocalDatetime(booking.start_time);
+    document.getElementById('editEnd').value = formatLocalDatetime(booking.end_time);
+
+    // Fill Team TomSelect (options)
+    teamSelectTom.clearOptions();
+    allTeams.forEach(t => teamSelectTom.addOption({ value: String(t.id), text: t.name || t.title || t.id }));
+    teamSelectTom.clear(); // clear selection
+    // booking.teams có thể là array id hoặc array object {id,name}
+    if (Array.isArray(booking.teams) && booking.teams.length > 0) {
+      const teamIds = booking.teams.map(t => String((typeof t === 'object') ? (t.id ?? t.team_id) : t));
+      teamSelectTom.setValue(teamIds);
+    }
+
+    // Fill Participant TomSelect (options)
+    participantSelectTom.clearOptions();
+    allParticipants.forEach(p => participantSelectTom.addOption({ value: String(p.id), text: p.name }));
+    participantSelectTom.clear();
+    if (Array.isArray(booking.participants) && booking.participants.length > 0) {
+      // booking.participants items may be { user_id, team_id, full_name } or simple ids
+      const participantIds = booking.participants.map(p => {
+        if (typeof p === 'object') return String(p.user_id ?? p.id ?? p.userId);
+        return String(p);
+      });
+      participantSelectTom.setValue(participantIds);
+    }
+
+    new bootstrap.Modal(document.getElementById('editBookingModal')).show();
+  } catch (err) {
+    console.error('Lỗi khi mở modal chỉnh sửa:', err);
+    alert('Không tải được dữ liệu lịch họp. Kiểm tra console để biết chi tiết.');
+  }
 }
 
 // 🧠 Submit form sửa
@@ -104,14 +172,21 @@ document.getElementById('editBookingForm')?.addEventListener('submit', async (e)
   const id = document.getElementById('editBookingId').value;
   const title = document.getElementById('editTitle').value.trim();
   const room_id = document.getElementById('editRoom').value;
-  const start_time = document.getElementById('editStart').value;
-  const end_time = document.getElementById('editEnd').value;
+  const start_time_local = document.getElementById('editStart').value;
+  const end_time_local = document.getElementById('editEnd').value;
 
-  const selectedTeams = teamSelectTom.getValue();
-  const selectedParticipants = participantSelectTom.getValue();
+  const selectedTeams = teamSelectTom.getValue() || [];
+  const selectedParticipants = participantSelectTom.getValue() || [];
 
-  if (!title || !room_id || !start_time || !end_time) {
+  if (!title || !room_id || !start_time_local || !end_time_local) {
     alert('Vui lòng nhập đầy đủ thông tin!');
+    return;
+  }
+
+  const start_time = parseInputDatetimeToUTCString(start_time_local);
+  const end_time = parseInputDatetimeToUTCString(end_time_local);
+  if (!start_time || !end_time) {
+    alert('Thời gian không hợp lệ');
     return;
   }
 
@@ -136,7 +211,7 @@ document.getElementById('editBookingForm')?.addEventListener('submit', async (e)
     await renderBookings();
     await renderWeeklySchedule();
   } catch (err) {
-    alert('❌ Lỗi khi cập nhật: ' + err.message);
+    alert('❌ Lỗi khi cập nhật: ' + (err.message || err));
   }
 });
 
@@ -152,7 +227,7 @@ async function renderBookings() {
   const div = document.getElementById('bookings');
   div.innerHTML = '';
 
-  if (rows.length === 0) {
+  if (!rows || rows.length === 0) {
     div.innerHTML = '<div class="alert alert-info">Không có lịch</div>';
     return;
   }
@@ -162,21 +237,27 @@ async function renderBookings() {
   rows.forEach(b => {
     const card = document.createElement('div');
     card.className = 'card mb-2 p-2';
+
+    // hiển thị thời gian an toàn (nếu format MySQL, convert sang Date hợp lệ)
+    const startLabel = formatLocalDatetime(b.start_time) ? new Date(formatLocalDatetime(b.start_time)).toLocaleString() : (b.start_time || '');
+    const endLabel = formatLocalDatetime(b.end_time) ? new Date(formatLocalDatetime(b.end_time)).toLocaleString() : (b.end_time || '');
+
     card.innerHTML = `
       <strong>${b.title}</strong>
       <div class="text-muted">
-        ${b.room_name} — ${new Date(b.start_time).toLocaleString()} → ${new Date(b.end_time).toLocaleString()} — ${b.booked_by}
+        ${b.room_name || ''} — ${startLabel} → ${endLabel} — ${b.booked_by || ''}
       </div>
     `;
 
     const btnGroup = document.createElement('div');
     btnGroup.className = 'mt-2';
 
-    if (b.user_id === currentUser) {
+    if (String(b.user_id) === String(currentUser)) {
       const editBtn = document.createElement('button');
       editBtn.className = 'btn btn-sm btn-outline-primary me-2';
       editBtn.textContent = 'Sửa';
-      editBtn.onclick = () => openEditModal(b);
+      // === Sửa chỗ quan trọng: truyền ID chứ không phải object ===
+      editBtn.onclick = () => openEditModal(b.id);
       btnGroup.appendChild(editBtn);
     }
 
@@ -196,7 +277,7 @@ async function renderBookings() {
   });
 }
 
-// 📆 Render lịch cá nhân
+// 📆 Render lịch cá nhân (giữ gần như cũ nhưng an toàn hơn khi parse thời gian)
 async function renderWeeklySchedule() {
   const userId = localStorage.getItem('id');
   if (!userId) return;
@@ -268,8 +349,10 @@ async function renderWeeklySchedule() {
     container.prepend(hourLabels);
 
     bookings.forEach(b => {
-      const startTime = new Date(b.start_time);
-      const endTime = new Date(b.end_time);
+      const startTime = new Date(b.start_time.includes(' ') && !b.start_time.includes('T') ? b.start_time.replace(' ', 'T') : b.start_time);
+      const endTime = new Date(b.end_time.includes(' ') && !b.end_time.includes('T') ? b.end_time.replace(' ', 'T') : b.end_time);
+      if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) return;
+
       const eventDay = days.find(d => {
         const dayLocal = d.date.toLocaleDateString('vi-VN');
         const eventLocal = startTime.toLocaleDateString('vi-VN');
