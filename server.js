@@ -441,6 +441,52 @@ app.get('/api/notifications/:userId', async (req, res) => {
   }
 });
 
+app.get('/api/bookings/:id/detail', async (req, res) => {
+  const bookingId = req.params.id;
+
+  try {
+    // Lấy thông tin cơ bản của booking
+    const [bookings] = await db.query(`
+      SELECT b.*, r.name AS room_name, up.full_name AS booked_by
+      FROM bookings b
+      JOIN rooms r ON r.id = b.room_id
+      JOIN users u ON u.id = b.user_id
+      JOIN user_profiles up ON u.id = up.user_id
+      WHERE b.id = ?
+    `, [bookingId]);
+
+    if (bookings.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy booking' });
+    }
+
+    const booking = bookings[0];
+
+    // Lấy người tham dự
+    const [participants] = await db.query(`
+      SELECT p.user_id, p.team_id, up.full_name
+      FROM participants p
+      JOIN users u ON u.id = p.user_id
+      JOIN user_profiles up ON u.id = up.user_id
+      WHERE p.booking_id = ?
+    `, [bookingId]);
+
+    // Lấy danh sách team (chỉ những team có mặt)
+    const teamIds = [...new Set(participants.filter(p => p.team_id).map(p => p.team_id))];
+    const [teams] = teamIds.length > 0
+      ? await db.query('SELECT id, name FROM teams WHERE id IN (?)', [teamIds])
+      : [ [] ];
+
+    res.json({
+      ...booking,
+      participants,
+      teams
+    });
+  } catch (err) {
+    console.error('❌ Lỗi khi lấy chi tiết booking:', err);
+    res.status(500).json({ error: 'Lỗi server' });
+  }
+});
+
 
 // Delete booking (MySQL)
 app.delete('/api/bookings/:id', async (req, res) => {
@@ -453,6 +499,81 @@ app.delete('/api/bookings/:id', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.put('/api/bookings/:id', async (req, res) => {
+  const conn = await db.getConnection();
+  await conn.beginTransaction();
+
+  try {
+    const id = req.params.id;
+    const { title, room_id, start_time, end_time, teams, participants } = req.body;
+
+    // 1️⃣ Lấy dữ liệu cũ
+    const [oldRows] = await conn.query('SELECT * FROM bookings WHERE id = ?', [id]);
+    if (oldRows.length === 0) {
+      return res.status(404).json({ error: 'Không tìm thấy booking' });
+    }
+    const oldData = oldRows[0];
+
+    // 2️⃣ Kiểm tra xung đột lịch với các booking khác
+    const [conflicts] = await conn.query(
+      `SELECT * FROM bookings 
+       WHERE room_id = ? AND id != ? AND NOT (end_time <= ? OR start_time >= ?)`,
+      [room_id, id, start_time, end_time]
+    );
+    if (conflicts.length > 0) {
+      await conn.rollback();
+      return res.status(409).json({ 
+        error: 'Xung đột lịch với booking hiện tại', 
+        conflict: conflicts[0] 
+      });
+    }
+
+    // 3️⃣ Cập nhật booking (thêm teams + participants)
+    await conn.query(
+      'UPDATE bookings SET title = ?, room_id = ?, start_time = ?, end_time = ?, teams = ?, participants = ? WHERE id = ?',
+      [
+        title,
+        room_id,
+        start_time,
+        end_time,
+        JSON.stringify(teams || []),
+        JSON.stringify(participants || []),
+        id
+      ]
+    );
+
+    // 4️⃣ Lấy dữ liệu mới để log
+    const [newRows] = await conn.query('SELECT * FROM bookings WHERE id = ?', [id]);
+    const newData = newRows[0];
+
+    // 5️⃣ Ghi log vào booking_change_log
+    await conn.query(
+      `INSERT INTO booking_change_log (entity_type, entity_id, action, old_data, new_data, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        'booking',
+        id,
+        'update',
+        JSON.stringify(oldData),
+        JSON.stringify(newData),
+        req.user?.email || 'admin_demo'
+      ]
+    );
+
+    await conn.commit();
+    res.json({ success: true, message: 'Cập nhật booking thành công!', booking: newData });
+
+  } catch (err) {
+    await conn.rollback();
+    console.error('❌ Lỗi khi update booking:', err);
+    res.status(500).json({ error: 'Lỗi server' });
+  } finally {
+    conn.release();
+  }
+});
+
+
 
 // Route check phòng trống (MySQL)
 app.get('/api/available', async (req, res) => {
