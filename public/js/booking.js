@@ -4,10 +4,10 @@ async function api(path, opts = {}) {
     return res.json();
 }
 
-// Load danh sách team vào dropdown
+// ===== Load Teams =====
 async function loadTeams() {
     const teamSelect = document.getElementById('teamSelect');
-    teamSelect.innerHTML = '<option value="">-- Không chọn --</option>';
+    teamSelect.innerHTML = '';
 
     try {
         const teams = await api('/teams');
@@ -17,13 +17,21 @@ async function loadTeams() {
             opt.textContent = t.name;
             teamSelect.appendChild(opt);
         });
+
+        // TomSelect multi-team
+        new TomSelect('#teamSelect', {
+            plugins: ['remove_button'],
+            maxItems: null,
+            placeholder: 'Chọn 1 hoặc nhiều team...',
+            searchField: ['text']
+        });
     } catch (err) {
         console.error('Lỗi load team', err);
     }
 }
 
-// Load users vào dropdown (userSelect cho organizer, participantsSelect cho người tham dự)
-let allUsers = []; // 👉 lưu lại để lọc theo team sau
+// ===== Load Users =====
+let allUsers = [];
 async function loadUsers() {
     const role = localStorage.getItem('role');
     const fullName = localStorage.getItem('full_name');
@@ -36,7 +44,7 @@ async function loadUsers() {
     try {
         allUsers = await api('/users');
 
-        // Organizer (người đặt)
+        // Organizer
         if (role === 'User') {
             const opt = document.createElement('option');
             opt.value = localStorage.getItem('id');
@@ -53,7 +61,7 @@ async function loadUsers() {
             userSelect.disabled = false;
         }
 
-        // Participants (ban đầu load tất cả để TomSelect sẵn)
+        // Participants
         allUsers.forEach(u => {
             const opt = document.createElement('option');
             opt.value = u.id;
@@ -61,16 +69,13 @@ async function loadUsers() {
             participantsSelect.appendChild(opt);
         });
 
-        // ✅ Khởi tạo Tom Select cho participants
+        // TomSelect participants
         new TomSelect('#participantsSelect', {
             plugins: ['remove_button'],
             maxItems: null,
             placeholder: 'Chọn người tham dự...',
             searchField: ['text'],
-            sortField: {
-                field: 'text',
-                direction: 'asc'
-            }
+            sortField: { field: 'text', direction: 'asc' }
         });
 
     } catch (err) {
@@ -78,12 +83,12 @@ async function loadUsers() {
     }
 }
 
-// Load phòng khả dụng dựa theo thời gian + lọc theo chi nhánh
+// ===== Load Available Rooms =====
 async function loadAvailableRooms() {
     const startInput = document.getElementById('start').value;
     const endInput = document.getElementById('end').value;
     const roomSelect = document.getElementById('roomSelect');
-    const userBranch = localStorage.getItem('branch_id'); // 👈 chi nhánh user
+    const userBranch = localStorage.getItem('branch_id');
 
     if (!startInput || !endInput) {
         roomSelect.innerHTML = '<option value="">Chọn thời gian trước để xem phòng trống</option>';
@@ -95,9 +100,7 @@ async function loadAvailableRooms() {
         if (!res.ok) throw new Error('Lỗi tải phòng trống');
         const rooms = await res.json();
 
-        // ✅ Chỉ lấy phòng cùng chi nhánh
         const filteredRooms = rooms.filter(r => String(r.branch_id) === String(userBranch));
-
         roomSelect.innerHTML = '';
         if (filteredRooms.length === 0) {
             roomSelect.innerHTML = '<option value="">Không còn phòng trống tại chi nhánh của bạn</option>';
@@ -109,42 +112,51 @@ async function loadAvailableRooms() {
             opt.textContent = `${r.name} - ${r.location_name} - ${r.capacity} người`;
             roomSelect.appendChild(opt);
         });
+
     } catch (err) {
         console.error(err);
         roomSelect.innerHTML = '<option value="">Không tải được danh sách phòng trống</option>';
     }
 }
 
-// Lọc người tham dự khi chọn team
+// ===== Filter Participants theo Team =====
+// Lọc / thêm người tham dự khi chọn team (vẫn giữ tất cả người khác để chọn lẻ)
 document.getElementById('teamSelect').addEventListener('change', (e) => {
-    const selectedTeamId = e.target.value;
+    const selectedTeamIds = Array.from(e.target.selectedOptions).map(opt => opt.value);
     const participantsSelect = document.getElementById('participantsSelect').tomselect;
     const userBranch = localStorage.getItem('branch_id');
 
-    participantsSelect.clearOptions();
+    // Bắt đầu với tất cả người cùng chi nhánh
+    let filtered = allUsers.filter(u => String(u.branch_id) === String(userBranch));
 
-    if (!selectedTeamId) {
-        // Nếu bỏ chọn team thì load lại tất cả
+    // Thêm các thành viên của team đã chọn vào đầu danh sách (nếu chưa có)
+    selectedTeamIds.forEach(teamId => {
         allUsers.forEach(u => {
-            participantsSelect.addOption({ value: u.id, text: `${u.full_name} - ${u.department}` });
+            if (String(u.team_id) === teamId && !filtered.some(f => f.id === u.id)) {
+                filtered.push(u);
+            }
         });
-        participantsSelect.refreshOptions(false);
-        return;
-    }
+    });
 
-    // ✅ Chỉ lọc người cùng team + cùng chi nhánh
-    const filtered = allUsers.filter(u =>
-        String(u.team_id) === String(selectedTeamId) &&
-        String(u.branch_id) === String(userBranch)
-    );
-
+    // Clear và load lại participantsSelect
+    participantsSelect.clearOptions();
     filtered.forEach(u => {
         participantsSelect.addOption({ value: u.id, text: `${u.full_name} - ${u.department}` });
     });
     participantsSelect.refreshOptions(false);
+
+    // Tự động select những người thuộc team đã chọn
+    selectedTeamIds.forEach(teamId => {
+        allUsers.forEach(u => {
+            if (String(u.team_id) === teamId && String(u.branch_id) === String(userBranch)) {
+                participantsSelect.addItem(u.id);
+            }
+        });
+    });
 });
 
-// Xử lý submit form đặt phòng
+
+// ===== Handle Booking Submit =====
 async function handleBooking(e) {
     e.preventDefault();
     const room_id = document.getElementById('roomSelect').value;
@@ -152,21 +164,12 @@ async function handleBooking(e) {
     const result = document.getElementById('result');
     const role = localStorage.getItem('role');
 
-    // Người tổ chức (organizer)
-    let organizer;
-    if (role === 'User') {
-        organizer = localStorage.getItem('id');
-    } else {
-        organizer = document.getElementById('userSelect').value;
-    }
-
+    let organizer = role === 'User' ? localStorage.getItem('id') : document.getElementById('userSelect').value;
     const start_time = document.getElementById('start').value;
     const end_time = document.getElementById('end').value;
-    const team_id = document.getElementById('teamSelect').value;
+    const team_ids = Array.from(document.getElementById('teamSelect').selectedOptions).map(o => o.value);
 
-    // Người tham dự (nhiều người)
-    const participants = Array.from(document.getElementById('participantsSelect').selectedOptions)
-        .map(opt => opt.value);
+    const participants = Array.from(document.getElementById('participantsSelect').selectedOptions).map(o => o.value);
 
     if (!room_id) {
         result.innerHTML = `<div class="alert alert-warning">Vui lòng chọn phòng</div>`;
@@ -178,14 +181,8 @@ async function handleBooking(e) {
     }
 
     try {
-        const payload = { 
-            room_id, 
-            title, 
-            user_id: organizer, 
-            start_time, 
-            end_time 
-        };
-        if (team_id) payload.team_id = team_id;
+        const payload = { room_id, title, user_id: organizer, start_time, end_time };
+        if (team_ids.length > 0) payload.team_ids = team_ids;
         if (participants.length > 0) payload.participants = participants;
 
         const res = await api('/book', {
@@ -202,13 +199,14 @@ async function handleBooking(e) {
         } else {
             result.innerHTML = `<div class="alert alert-danger">${res.error}</div>`;
         }
+
     } catch (err) {
         result.innerHTML = `<div class="alert alert-danger">Lỗi server</div>`;
         console.error(err);
     }
 }
 
-// ===== INIT CALENDAR =====
+// ===== Calendar Init =====
 let calendar;
 document.addEventListener('DOMContentLoaded', async () => {
     const calendarEl = document.getElementById('calendar');
@@ -216,11 +214,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         initialView: 'dayGridMonth',
         locale: 'vi',
         height: 600,
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek'
-        },
+        headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
         events: async (info, successCallback, failureCallback) => {
             try {
                 const res = await fetch('/api/bookings');
@@ -232,10 +226,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     end: b.end_time,
                     backgroundColor: '#4e73df',
                     borderColor: '#4e73df',
-                    extendedProps: {
-                        room: b.room_name,
-                        bookedBy: b.booked_by
-                    }
+                    extendedProps: { room: b.room_name, bookedBy: b.booked_by }
                 }));
                 successCallback(events);
             } catch (err) {
@@ -243,15 +234,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 failureCallback(err);
             }
         },
-        eventDidMount: function(info) {
+        eventDidMount: info => {
             new bootstrap.Tooltip(info.el, {
-                title: `${info.event.title}\n - ${info.event.extendedProps.room}\n \n - ${info.event.start.toLocaleString()}\n - ${info.event.end.toLocaleString()}`,
-                placement: 'top',
-                trigger: 'hover',
-                container: 'body'
+                title: `${info.event.title}\n - ${info.event.extendedProps.room}\n\n - ${info.event.start.toLocaleString()}\n - ${info.event.end.toLocaleString()}`,
+                placement: 'top', trigger: 'hover', container: 'body'
             });
         },
-        eventClick: function(info) {
+        eventClick: info => {
             const modalEl = document.getElementById('eventModal');
             document.getElementById('modalTitle').textContent = info.event.title;
             document.getElementById('modalRoom').textContent = info.event.extendedProps.room;
@@ -266,11 +255,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadTeams();
 });
 
-// Event listeners
+// ===== Event Listeners =====
 document.getElementById('bookForm').addEventListener('submit', handleBooking);
-// document.getElementById('start').addEventListener('change', loadAvailableRooms);
-// document.getElementById('end').addEventListener('change', loadAvailableRooms);
-// Khi người dùng chọn thời gian bắt đầu, tự động set thời gian kết thúc cùng ngày (+1 giờ)
+
 document.getElementById('start').addEventListener('change', () => {
     const startInput = document.getElementById('start');
     const endInput = document.getElementById('end');
@@ -278,20 +265,16 @@ document.getElementById('start').addEventListener('change', () => {
     if (!startInput.value) return;
 
     const startTime = new Date(startInput.value);
+    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
 
-    // Nếu chưa chọn kết thúc hoặc khác ngày thì auto set cùng ngày, +1 giờ
-    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000); // +1 giờ
     const isoLocal = endTime.getFullYear() + '-' +
         String(endTime.getMonth() + 1).padStart(2, '0') + '-' +
         String(endTime.getDate()).padStart(2, '0') + 'T' +
         String(endTime.getHours()).padStart(2, '0') + ':' +
         String(endTime.getMinutes()).padStart(2, '0');
 
-        endInput.value = isoLocal;
-
-    // Chuyển con trỏ focus sang ô kết thúc để tiện chỉnh lại giờ
+    endInput.value = isoLocal;
     endInput.focus();
-      setTimeout(() => {
-    loadAvailableRooms();
-  }, 100);
+
+    setTimeout(() => loadAvailableRooms(), 100);
 });
