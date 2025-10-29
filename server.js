@@ -12,6 +12,15 @@ function formatVietnamTime(dateString) {
     hour12: false
   });
 }
+const formatMySQLDate = (isoString) => {
+  if (!isoString) return null;
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return null;
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); // chuyển UTC -> local
+  return d.toISOString().slice(0, 19).replace('T', ' ');
+};
+
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
@@ -503,67 +512,52 @@ app.delete('/api/bookings/:id', async (req, res) => {
 app.put('/api/bookings/:id', async (req, res) => {
   const conn = await db.getConnection();
   await conn.beginTransaction();
-
   try {
     const id = req.params.id;
-    const { title, room_id, start_time, end_time, teams, participants } = req.body;
+    const { title, room_id, start_time, end_time, participants } = req.body;
 
     // 1️⃣ Lấy dữ liệu cũ
-    const [oldRows] = await conn.query('SELECT * FROM bookings WHERE id = ?', [id]);
-    if (oldRows.length === 0) {
-      return res.status(404).json({ error: 'Không tìm thấy booking' });
-    }
+    const [oldRows] = await conn.query('SELECT * FROM bookings WHERE id=?', [id]);
+    if (!oldRows.length) return res.status(404).json({ error: 'Không tìm thấy booking' });
     const oldData = oldRows[0];
 
-    // 2️⃣ Kiểm tra xung đột lịch với các booking khác
+    // 2️⃣ Kiểm tra xung đột lịch
     const [conflicts] = await conn.query(
       `SELECT * FROM bookings 
-       WHERE room_id = ? AND id != ? AND NOT (end_time <= ? OR start_time >= ?)`,
+       WHERE room_id=? AND id!=? AND NOT (end_time<=? OR start_time>=?)`,
       [room_id, id, start_time, end_time]
     );
-    if (conflicts.length > 0) {
+    if (conflicts.length) {
       await conn.rollback();
-      return res.status(409).json({ 
-        error: 'Xung đột lịch với booking hiện tại', 
-        conflict: conflicts[0] 
-      });
+      return res.status(409).json({ error: 'Xung đột lịch', conflict: conflicts[0] });
     }
+    
+    const start_time_sql = formatMySQLDate(start_time);
+    const end_time_sql = formatMySQLDate(end_time);
 
-    // 3️⃣ Cập nhật booking (thêm teams + participants)
+    // 3️⃣ Update booking chính
     await conn.query(
-      'UPDATE bookings SET title = ?, room_id = ?, start_time = ?, end_time = ?, teams = ?, participants = ? WHERE id = ?',
-      [
-        title,
-        room_id,
-        start_time,
-        end_time,
-        JSON.stringify(teams || []),
-        JSON.stringify(participants || []),
-        id
-      ]
+      'UPDATE bookings SET title=?, room_id=?, start_time=?, end_time=? WHERE id=?',
+      [title, room_id, start_time_sql, end_time_sql, id]
     );
 
-    // 4️⃣ Lấy dữ liệu mới để log
-    const [newRows] = await conn.query('SELECT * FROM bookings WHERE id = ?', [id]);
-    const newData = newRows[0];
+    // 4️⃣ Cập nhật participants
+    await conn.query('DELETE FROM participants WHERE booking_id=?', [id]);
+    for (const userId of participants || []) {
+      await conn.query('INSERT INTO participants (booking_id, user_id) VALUES (?, ?)', [id, userId]);
+    }
 
-    // 5️⃣ Ghi log vào booking_change_log
+    // 5️⃣ Log thay đổi
+    const [newRows] = await conn.query('SELECT * FROM bookings WHERE id=?', [id]);
+    const newData = newRows[0];
     await conn.query(
       `INSERT INTO booking_change_log (entity_type, entity_id, action, old_data, new_data, updated_by)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        'booking',
-        id,
-        'update',
-        JSON.stringify(oldData),
-        JSON.stringify(newData),
-        req.user?.email || 'admin_demo'
-      ]
+       VALUES ('booking', ?, 'update', ?, ?, ?)`,
+      [id, JSON.stringify(oldData), JSON.stringify(newData), req.user?.email || 'admin_demo']
     );
 
     await conn.commit();
-    res.json({ success: true, message: 'Cập nhật booking thành công!', booking: newData });
-
+    res.json({ success: true, message: 'Cập nhật thành công!', booking: newData });
   } catch (err) {
     await conn.rollback();
     console.error('❌ Lỗi khi update booking:', err);
@@ -572,7 +566,6 @@ app.put('/api/bookings/:id', async (req, res) => {
     conn.release();
   }
 });
-
 
 
 // Route check phòng trống (MySQL)

@@ -199,7 +199,7 @@ document.getElementById('editBookingForm')?.addEventListener('submit', async (e)
         room_id,
         start_time,
         end_time,
-        teams: selectedTeams,
+        // teams: selectedTeams,
         participants: selectedParticipants
       })
     });
