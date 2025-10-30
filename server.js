@@ -312,7 +312,6 @@ app.get('/api/bookings', async (req, res) => {
   }
 });
 
-// 📌 API: Tạo booking (có check trùng lịch + thêm người tham dự theo team)
 // 📌 API: Tạo booking (có check trùng lịch + thêm người tham dự theo team + người lẻ)
 app.post('/api/book', async (req, res) => {
   const conn = await db.getConnection();
@@ -358,64 +357,92 @@ app.post('/api/book', async (req, res) => {
     );
     const userBranchId = creatorInfo[0]?.branch_id;
 
-    // 5️⃣ Gộp tất cả user: members của team + participant lẻ + organizer
+   // 5️⃣ Gộp tất cả user: members của team + participant lẻ + organizer
     let allUserIds = new Set();
 
-    // ✅ Thêm members từ team_ids
-    if (Array.isArray(team_ids) && team_ids.length > 0) {
+    // 🔹 Chuẩn hóa danh sách team_id từ client (tránh undefined)
+    const selectedTeamIds = (Array.isArray(team_ids) ? team_ids : []).map(String);
+
+    // ✅ Thêm members từ team_ids (chỉ members cùng branch)
+    if (selectedTeamIds.length > 0) {
       const [members] = await conn.query(
         `SELECT u.id, u.team_id
-         FROM users u
-         LEFT JOIN user_profiles up ON u.id = up.user_id
-         WHERE u.team_id IN (?) AND up.branch_id = ?`,
-        [team_ids, userBranchId]
+        FROM users u
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        WHERE u.team_id IN (?) AND up.branch_id = ?`,
+        [selectedTeamIds, userBranchId]
       );
+
       members.forEach(m => allUserIds.add(m.id));
-      // Thêm vào bảng participants với team_id
+
       const memberValues = members.map(m => [bookingId, m.id, m.team_id]);
       if (memberValues.length > 0) {
         await conn.query(
-          'INSERT INTO participants (booking_id, user_id, team_id) VALUES ? ON DUPLICATE KEY UPDATE booking_id=booking_id',
+          'INSERT INTO participants (booking_id, user_id, team_id) VALUES ? ON DUPLICATE KEY UPDATE team_id = VALUES(team_id)',
           [memberValues]
         );
-        // Gửi notification cho members
-        const notifValues = members.map(m => [m.id, `Bạn đã được thêm vào cuộc họp: "${title}" lúc ${formatVietnamTime(start_time)}`]);
+
+        // Thông báo cho members
+        const notifValues = members.map(m => [
+          m.id,
+          `Bạn đã được thêm vào cuộc họp: "${title}" lúc ${formatVietnamTime(start_time)}`
+        ]);
         if (notifValues.length > 0) {
-          await conn.query(
-            'INSERT INTO notifications (user_id, message) VALUES ?',
-            [notifValues]
-          );
+          await conn.query('INSERT INTO notifications (user_id, message) VALUES ?', [notifValues]);
         }
       }
     }
 
-    // ✅ Thêm participant lẻ
-    if (Array.isArray(participants) && participants.length > 0) {
-      participants.forEach(uid => allUserIds.add(uid));
-      const participantValues = participants.map(uid => [bookingId, uid, null]);
-      await conn.query(
-        'INSERT INTO participants (booking_id, user_id, team_id) VALUES ? ON DUPLICATE KEY UPDATE booking_id=booking_id',
-        [participantValues]
-      );
-      const notifValues = participants.map(uid => [uid, `Bạn đã được thêm vào cuộc họp: "${title}" lúc ${formatVietnamTime(start_time)}`]);
-      if (notifValues.length > 0) {
-        await conn.query(
-          'INSERT INTO notifications (user_id, message) VALUES ?',
-          [notifValues]
-        );
-      }
-    }
+    // ✅ Thêm organizer (chỉ gán team_id nếu thuộc team được chọn)
+    let organizerTeamId = null;
+    const [organizerInfo] = await conn.query('SELECT team_id FROM users WHERE id = ?', [user_id]);
+    const userTeamId = organizerInfo[0]?.team_id ?? null;
+    console.log('🔍 Debug team check:', {
+      selectedTeamIds,
+      typeofSelectedTeamIds: typeof selectedTeamIds,
+      userTeamId,
+      userTeamIdType: typeof userTeamId
+    });
 
-    // ✅ Thêm organizer
+    if (userTeamId && selectedTeamIds.includes(String(userTeamId))) {
+      organizerTeamId = userTeamId;
+    }
+    console.log('🧩 Organizer debug:', { user_id, team_id: organizerTeamId });
     allUserIds.add(user_id);
+
+    // Chèn organizer TRƯỚC participant lẻ (để không bị ghi đè team_id=null)
     await conn.query(
-      'INSERT INTO participants (booking_id, user_id, team_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE booking_id=booking_id',
-      [bookingId, user_id, null]
+      'INSERT INTO participants (booking_id, user_id, team_id) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE team_id = VALUES(team_id)',
+      [bookingId, user_id, organizerTeamId]
     );
+
+    // Thông báo cho organizer
     await conn.query(
       'INSERT INTO notifications (user_id, message) VALUES (?, ?)',
       [user_id, `Bạn đã tạo cuộc họp: "${title}" lúc ${formatVietnamTime(start_time)}`]
     );
+
+    // ✅ Thêm participant lẻ (loại organizer ra)
+    if (Array.isArray(participants) && participants.length > 0) {
+      const filteredParticipants = participants.filter(uid => String(uid) !== String(user_id));
+      filteredParticipants.forEach(uid => allUserIds.add(uid));
+
+      if (filteredParticipants.length > 0) {
+        const participantValues = filteredParticipants.map(uid => [bookingId, uid, null]);
+        await conn.query(
+          'INSERT INTO participants (booking_id, user_id, team_id) VALUES ? ON DUPLICATE KEY UPDATE team_id = COALESCE(participants.team_id, VALUES(team_id))',
+          [participantValues]
+        );
+
+        const notifValues = filteredParticipants.map(uid => [
+          uid,
+          `Bạn đã được thêm vào cuộc họp: "${title}" lúc ${formatVietnamTime(start_time)}`
+        ]);
+        if (notifValues.length > 0) {
+          await conn.query('INSERT INTO notifications (user_id, message) VALUES ?', [notifValues]);
+        }
+      }
+    }
 
     // 6️⃣ Trả về booking vừa tạo
     const [rows] = await conn.query(
@@ -469,9 +496,8 @@ app.get('/api/bookings/:id/detail', async (req, res) => {
     }
 
     const booking = bookings[0];
-
-    // Lấy người tham dự
-    const [participants] = await db.query(`
+    // Lấy tất cả người tham dự
+    const [participantsAll] = await db.query(`
       SELECT p.user_id, p.team_id, up.full_name
       FROM participants p
       JOIN users u ON u.id = p.user_id
@@ -479,17 +505,21 @@ app.get('/api/bookings/:id/detail', async (req, res) => {
       WHERE p.booking_id = ?
     `, [bookingId]);
 
-    // Lấy danh sách team (chỉ những team có mặt)
-    const teamIds = [...new Set(participants.filter(p => p.team_id).map(p => p.team_id))];
+    // Người thuộc team
+    const teamIds = [...new Set(participantsAll.filter(p => p.team_id).map(p => p.team_id))];
     const [teams] = teamIds.length > 0
       ? await db.query('SELECT id, name FROM teams WHERE id IN (?)', [teamIds])
       : [ [] ];
 
+    // Người tham dự lẻ (không thuộc team)
+    const soloParticipants = participantsAll.filter(p => !p.team_id);
+
     res.json({
       ...booking,
-      participants,
-      teams
+      teams,
+      participants: soloParticipants
     });
+
   } catch (err) {
     console.error('❌ Lỗi khi lấy chi tiết booking:', err);
     res.status(500).json({ error: 'Lỗi server' });
@@ -514,7 +544,7 @@ app.put('/api/bookings/:id', async (req, res) => {
   await conn.beginTransaction();
   try {
     const id = req.params.id;
-    const { title, room_id, start_time, end_time, participants } = req.body;
+    const { title, room_id, start_time, end_time, teams = [], participants = [] } = req.body;
 
     // 1️⃣ Lấy dữ liệu cũ
     const [oldRows] = await conn.query('SELECT * FROM bookings WHERE id=?', [id]);
@@ -543,9 +573,32 @@ app.put('/api/bookings/:id', async (req, res) => {
 
     // 4️⃣ Cập nhật participants
     await conn.query('DELETE FROM participants WHERE booking_id=?', [id]);
-    for (const userId of participants || []) {
-      await conn.query('INSERT INTO participants (booking_id, user_id) VALUES (?, ?)', [id, userId]);
+    // for (const userId of participants || []) {
+    //   await conn.query('INSERT INTO participants (booking_id, user_id) VALUES (?, ?)', [id, userId]);
+    // }
+        // 👉 Thêm lại từ team (nếu có)
+    if (Array.isArray(teams) && teams.length > 0) {
+      const [teamMembers] = await conn.query(
+        'SELECT id, team_id FROM users WHERE team_id IN (?)',
+        [teams]
+      );
+      if (teamMembers.length > 0) {
+        const teamValues = teamMembers.map(m => [id, m.id, m.team_id]);
+        await conn.query(
+          'INSERT INTO participants (booking_id, user_id, team_id) VALUES ?',
+          [teamValues]
+        );
+      }
     }
+    // 👉 Thêm participant lẻ (tránh trùng)
+    if (Array.isArray(participants) && participants.length > 0) {
+      const participantValues = participants.map(uid => [id, uid, null]);
+      await conn.query(
+        'INSERT INTO participants (booking_id, user_id, team_id) VALUES ? ON DUPLICATE KEY UPDATE booking_id=booking_id',
+        [participantValues]
+      );
+    }
+
 
     // 5️⃣ Log thay đổi
     const [newRows] = await conn.query('SELECT * FROM bookings WHERE id=?', [id]);
