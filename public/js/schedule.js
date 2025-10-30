@@ -259,19 +259,21 @@ async function renderBookings() {
       // === Sửa chỗ quan trọng: truyền ID chứ không phải object ===
       editBtn.onclick = () => openEditModal(b.id);
       btnGroup.appendChild(editBtn);
-    }
 
-    const del = document.createElement('button');
-    del.className = 'btn btn-sm btn-outline-danger';
-    del.textContent = 'Xóa';
-    del.onclick = async () => {
-      if (!confirm('Xác nhận xóa?')) return;
-      await fetch('/api/bookings/' + b.id, { method: 'DELETE' });
-      await renderBookings();
-      await renderWeeklySchedule();
+      const del = document.createElement('button');
+      del.className = 'btn btn-sm btn-outline-danger';
+      del.textContent = 'Xóa';
+      del.onclick = async () => {
+        if (!confirm('Xác nhận xóa?')) return;
+        await fetch('/api/bookings/' + b.id, { method: 'DELETE' });
+        await renderBookings();
+        await renderWeeklySchedule();
     };
 
     btnGroup.appendChild(del);
+    }
+
+
     card.appendChild(btnGroup);
     div.appendChild(card);
   });
