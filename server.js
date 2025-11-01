@@ -1,4 +1,5 @@
-require('dotenv').config();
+const dotenv = require("dotenv");
+dotenv.config();
 process.env.TZ = 'Asia/Ho_Chi_Minh';
 function formatVietnamTime(dateString) {
   const date = new Date(dateString);
@@ -691,6 +692,111 @@ app.get('/api/bookings/personal/:userId', async (req, res) => {
   } catch (err) {
     console.error('❌ Lỗi lấy bookings personal:', err);
     res.status(500).json({ error: 'Lỗi server' });
+  }
+});
+// =======================
+// API: Documents (Trình ký văn bản)
+// =======================
+// Lấy danh sách cuộc họp để chọn khi tạo văn bản
+app.get('/api/bookings/list', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT id, title, start_time, end_time
+      FROM bookings
+      WHERE start_time BETWEEN NOW() - INTERVAL 30 DAY AND NOW() + INTERVAL 7 DAY
+      ORDER BY start_time DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// --- Xử lý upload file thật ---
+const multer = require("multer");
+
+// Tạo thư mục lưu file nếu chưa có
+const uploadDir = path.join(process.cwd(), "public/demo_doc");
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+// Cấu hình multer
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, unique + path.extname(file.originalname));
+  },
+});
+const upload = multer({ storage });
+
+// --- API upload và tạo văn bản ---
+app.post("/api/documents/upload", upload.single("file"), async (req, res) => {
+  try {
+    const { title, content, booking_id, created_by } = req.body;
+    const filePath = `/demo_doc/${req.file.filename}`;
+    const [result] = await db.query(
+      `INSERT INTO documents (title, content, file_path, booking_id, created_by, status)
+      VALUES (?, ?, ?, ?, ?, 'Đang trình ký')`,
+      [title, content, filePath, booking_id || null, created_by]
+    );
+
+    res.json({ success: true, id: result.insertId, file: filePath });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// Lấy danh sách văn bản
+app.get('/api/documents', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        d.id,
+        d.title,
+        d.file_url,
+        d.status,
+        b.title AS booking_title,
+        u.username AS creator_name,
+        d.created_at
+      FROM documents d
+      LEFT JOIN bookings b ON d.booking_id = b.id
+      LEFT JOIN users u ON d.created_by = u.id
+      ORDER BY d.created_at DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Thêm mới văn bản + upload file
+app.post('/api/documents', upload.single('file'), async (req, res) => {
+  try {
+    const { booking_id, title, created_by } = req.body;
+    const fileUrl = `/demo_doc/${req.file.filename}`;
+    const [result] = await db.query(`
+      INSERT INTO documents (booking_id, title, file_url, created_by)
+      VALUES (?, ?, ?, ?)
+    `, [booking_id, title, fileUrl, created_by]);
+    res.json({ id: result.insertId, message: 'Tải và lưu văn bản thành công' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Ký / từ chối
+app.post('/api/documents/:id/sign', async (req, res) => {
+  try {
+    const { signer_id, action } = req.body;
+    await db.query(`
+      UPDATE document_signers
+      SET status = ?, signed_at = CURRENT_TIMESTAMP
+      WHERE document_id = ? AND signer_id = ?
+    `, [action, req.params.id, signer_id]);
+    res.json({ message: `Đã ${action === 'signed' ? 'ký' : 'từ chối'} văn bản` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
