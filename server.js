@@ -729,22 +729,22 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // --- API upload và tạo văn bản ---
-app.post("/api/documents/upload", upload.single("file"), async (req, res) => {
-  try {
-    const { title, content, booking_id, created_by } = req.body;
-    const filePath = `/demo_doc/${req.file.filename}`;
-    const [result] = await db.query(
-      `INSERT INTO documents (title, content, file_path, booking_id, created_by, status)
-      VALUES (?, ?, ?, ?, ?, 'Đang trình ký')`,
-      [title, content, filePath, booking_id || null, created_by]
-    );
+// app.post("/api/documents/upload", upload.single("file"), async (req, res) => {
+//   try {
+//     const { title, content, booking_id, created_by } = req.body;
+//     const filePath = `/demo_doc/${req.file.filename}`;
+//     const [result] = await db.query(
+//       `INSERT INTO documents (title, content, file_path, booking_id, created_by, status)
+//       VALUES (?, ?, ?, ?, ?, 'Đang trình ký')`,
+//       [title, content, filePath, booking_id || null, created_by]
+//     );
 
-    res.json({ success: true, id: result.insertId, file: filePath });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-});
+//     res.json({ success: true, id: result.insertId, file: filePath });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 
 
 // Lấy danh sách văn bản
@@ -754,7 +754,7 @@ app.get('/api/documents', async (req, res) => {
       SELECT 
         d.id,
         d.title,
-        d.file_url,
+        d.file_path,
         d.status,
         b.title AS booking_title,
         u.username AS creator_name,
@@ -776,10 +776,25 @@ app.post('/api/documents', upload.single('file'), async (req, res) => {
     const { booking_id, title, created_by } = req.body;
     const fileUrl = `/demo_doc/${req.file.filename}`;
     const [result] = await db.query(`
-      INSERT INTO documents (booking_id, title, file_url, created_by)
+      INSERT INTO documents (booking_id, title, file_path, created_by)
       VALUES (?, ?, ?, ?)
     `, [booking_id, title, fileUrl, created_by]);
     res.json({ id: result.insertId, message: 'Tải và lưu văn bản thành công' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/documents/:id/signers', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT ds.signer_id, up.full_name, ds.status, ds.signed_at
+      FROM document_signers ds
+      LEFT JOIN user_profiles up ON ds.signer_id = up.user_id
+      WHERE ds.document_id = ?
+      ORDER BY ds.id
+    `, [req.params.id]);
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -797,6 +812,40 @@ app.post('/api/documents/:id/sign', async (req, res) => {
     res.json({ message: `Đã ${action === 'signed' ? 'ký' : 'từ chối'} văn bản` });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/documents/upload", upload.single("file"), async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    const { title, content, booking_id, created_by, signers } = req.body;
+    const filePath = `/demo_doc/${req.file.filename}`;
+    const parsedSigners = JSON.parse(signers || "[]");
+
+    await conn.beginTransaction();
+
+    const [result] = await conn.query(
+      `INSERT INTO documents (title, content, file_path, booking_id, created_by, status)
+       VALUES (?, ?, ?, ?, ?, 'Đang trình ký')`,
+      [title, content, filePath, booking_id || null, created_by]
+    );
+    const documentId = result.insertId;
+
+    if (parsedSigners.length > 0) {
+      const signerValues = parsedSigners.map(id => [documentId, id, 'Đang trình ký']);
+      await conn.query(
+        `INSERT INTO document_signers (document_id, signer_id, status) VALUES ?`,
+        [signerValues]
+      );
+    }
+
+    await conn.commit();
+    res.json({ success: true, id: documentId });
+  } catch (err) {
+    await conn.rollback();
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    conn.release();
   }
 });
 

@@ -95,10 +95,32 @@
             <input type="file" class="form-control" id="docFile" name="file" accept=".pdf,.doc,.docx" required>
           </div>
 
+          <div class="mb-3">
+            <label class="form-label">Người ký</label>
+            <select id="signers" name="signers" multiple class="form-select">
+            </select>
+          </div>
+
+
           <button type="submit" class="btn btn-primary w-100">
             <i class="bi bi-upload"></i> Lưu và trình ký
           </button>
         </form>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Modal: danh sách người ký -->
+<div class="modal fade" id="signersModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">Luồng ký văn bản</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="modal-content">
+        <!-- Nội dung danh sách người ký sẽ được load bằng JS -->
+        <div class="text-center text-muted">Đang tải...</div>
       </div>
     </div>
   </div>
