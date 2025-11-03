@@ -728,25 +728,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// --- API upload và tạo văn bản ---
-// app.post("/api/documents/upload", upload.single("file"), async (req, res) => {
-//   try {
-//     const { title, content, booking_id, created_by } = req.body;
-//     const filePath = `/demo_doc/${req.file.filename}`;
-//     const [result] = await db.query(
-//       `INSERT INTO documents (title, content, file_path, booking_id, created_by, status)
-//       VALUES (?, ?, ?, ?, ?, 'Đang trình ký')`,
-//       [title, content, filePath, booking_id || null, created_by]
-//     );
-
-//     res.json({ success: true, id: result.insertId, file: filePath });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: err.message });
-//   }
-// });
-
-
 // Lấy danh sách văn bản
 app.get('/api/documents', async (req, res) => {
   try {
@@ -800,20 +781,35 @@ app.get('/api/documents/:id/signers', async (req, res) => {
   }
 });
 
-// Ký / từ chối
 app.post('/api/documents/:id/sign', async (req, res) => {
+  const { user_id, action } = req.body;
   try {
-    const { signer_id, action } = req.body;
+    const status = action === 'signed' ? 'Đã ký' : 'Từ chối';
     await db.query(`
-      UPDATE document_signers
-      SET status = ?, signed_at = CURRENT_TIMESTAMP
+      UPDATE document_signers 
+      SET status = ?, signed_at = NOW() 
       WHERE document_id = ? AND signer_id = ?
-    `, [action, req.params.id, signer_id]);
-    res.json({ message: `Đã ${action === 'signed' ? 'ký' : 'từ chối'} văn bản` });
+    `, [status, req.params.id, user_id]);
+
+    // Nếu tất cả đã ký => cập nhật document thành "Hoàn tất"
+    if (action === 'signed') {
+      const [remaining] = await db.query(`
+        SELECT COUNT(*) AS c FROM document_signers 
+        WHERE document_id = ? AND status = 'Đang trình ký'
+      `, [req.params.id]);
+
+      if (remaining[0].c === 0) {
+        await db.query(`UPDATE documents SET status = 'Đã duyệt' WHERE id = ?`, [req.params.id]);
+      }
+    }
+
+    res.json({ success: true });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
+
 
 app.post("/api/documents/upload", upload.single("file"), async (req, res) => {
   const conn = await db.getConnection();
@@ -846,6 +842,36 @@ app.post("/api/documents/upload", upload.single("file"), async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   } finally {
     conn.release();
+  }
+});
+app.get('/api/documents/file/:filename', (req, res) => {
+  const filePath = path.join(process.cwd(), 'public', 'demo_doc', req.params.filename);
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).send('File không tồn tại.');
+  }
+
+  // LẤY MIME TYPE CHUẨN
+  const mime = req.params.filename.endsWith('.pdf')
+    ? 'application/pdf'
+    : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+  res.setHeader('Content-Type', mime);
+  res.setHeader('Content-Disposition', 'inline'); // << CHỈ ĐỂ INLINE, KHÔNG ĐỂ FILENAME
+  res.sendFile(filePath);
+});
+
+app.get('/api/documents/:id', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT id, title, status
+      FROM documents
+      WHERE id = ?
+    `, [req.params.id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Document not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
