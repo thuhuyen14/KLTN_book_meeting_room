@@ -4,91 +4,35 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Quản trị - DNSE</title>
+
+  <!-- Bootstrap & icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css" />
- <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- Tom Select (nice selects) -->
+  <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+
+  <link rel="stylesheet" href="css/style.css">
+
+  <style>
+    /* Small styling for modern look */
+    .avatar-sm { width:36px; height:36px; border-radius:50%; object-fit:cover; }
+    .search-row { gap: .5rem; align-items:center; }
+    .filter-chip { margin-right: .4rem; margin-bottom: .25rem; }
+    .table-avatar { display:flex; gap:.6rem; align-items:center; }
+    .table-avatar strong { line-height:1; }
+    .pagination-container { display:flex; justify-content:flex-end; align-items:center; gap:.5rem; }
+    .truncate { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; vertical-align:middle; }
+  </style>
 </head>
-<!-- Modal Sửa phòng -->
-<div class="modal fade" id="editRoomModal" tabindex="-1" aria-labelledby="editRoomModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="editRoomModalLabel">Sửa phòng</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" id="editRoomId">
-        <div class="mb-3">
-          <label for="editRoomName" class="form-label">Tên phòng</label>
-          <input type="text" class="form-control" id="editRoomName" placeholder="Tên phòng">
-        </div>
-        <div class="mb-3">
-          <label for="editRoomImage" class="form-label">URL ảnh</label>
-          <input type="text" class="form-control" id="editRoomImage" placeholder="URL ảnh">
-        </div>
-        <!-- Có thể thêm input cho room_type_id, location_id nếu cần -->
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-        <button type="button" id="saveRoomBtn" class="btn btn-primary">Lưu</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Modal Thêm phòng -->
-<div class="modal fade" id="addRoomModal" tabindex="-1" aria-labelledby="addRoomModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="addRoomModalLabel">Thêm phòng mới</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div class="mb-3">
-          <label for="newRoomId" class="form-label">Mã phòng</label>
-          <input type="text" class="form-control" id="newRoomId" placeholder="VD: R101">
-        </div>
-        <div class="mb-3">
-          <label for="newRoomName" class="form-label">Tên phòng</label>
-          <input type="text" class="form-control" id="newRoomName" placeholder="Tên phòng">
-        </div>
-        <div class="mb-3">
-          <label for="newRoomType" class="form-label">Loại phòng</label>
-          <select id="newRoomType" class="form-select">
-            <option value="">-- Chọn loại phòng --</option>
-          </select>
-        </div>
-        <div class="mb-3">
-          <label for="newRoomLocation" class="form-label">Vị trí</label>
-          <select id="newRoomLocation" class="form-select">
-            <option value="">-- Chọn tầng & chi nhánh --</option>
-          </select>
-        </div>
-        <div class="mb-3">
-          <label for="newRoomImage" class="form-label">URL ảnh</label>
-          <input type="text" class="form-control" id="newRoomImage" placeholder="URL ảnh">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-        <button type="button" id="createRoomBtn" class="btn btn-primary">Thêm phòng</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-
 <body>
+  <!-- Navbar -->
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-    <div class="container"> 
+    <div class="container">
       <a class="navbar-brand" href="index.html">DNSE Meeting</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav" aria-controls="nav" aria-expanded="false">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-
-      <div class="collapse navbar-collapse" id="nav">
+      <button class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+      <div id="nav" class="collapse navbar-collapse">
         <ul class="navbar-nav me-auto">
           <li class="nav-item"><a class="nav-link" href="rooms.html">Danh sách phòng</a></li>
           <li class="nav-item"><a class="nav-link" href="booking.html">Đặt phòng</a></li>
@@ -98,92 +42,245 @@
           <li class="nav-item"><a class="nav-link active" href="admin.html">Quản trị</a></li>
           <li class="nav-item"><a class="nav-link" href="report.html">Thống kê</a></li>
         </ul>
-
-        <ul class="navbar-nav ms-auto">
-
-          <!-- Notification bell -->
-          <li class="nav-item dropdown me-3">
-            <a class="nav-link position-relative" href="#" id="notification-bell" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              <!-- <img src="icons/bell.png" alt="Thông báo" width="22" height="22"> -->
-              <i class="bi bi-bell" style="font-size: 1.4rem; color: white;"></i>
-              <span id="notification-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
-            </a>
-            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notification-bell" style="min-width: 300px;">
-              <li class="dropdown-header fw-bold">Thông báo</li>
-              <li>
-                <div id="notification-list" style="max-height: 250px; overflow-y:auto;"></div>
-              </li>
-            </ul>
-          </li>
-
-          <!-- User menu / login-logout -->
-          <li class="nav-item dropdown" id="userMenu">
-            <!-- nội dung user menu -->
-          </li>
-        </ul>
-
-        
       </div>
     </div>
   </nav>
 
   <main class="container my-4">
-    <h2>Quản trị cơ bản</h2>
-    <p>Ghi chú: trang admin demo này chỉ hiển thị dữ liệu phòng. Thêm/sửa/xóa phòng cần mở rộng backend nếu cần.</p>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h2 class="mb-0">Quản trị hệ thống</h2>
+      <div>
+        <button id="btn-create-room" class="btn btn-outline-primary me-2">+ Thêm phòng</button>
+        <button id="btn-create-user" class="btn btn-success">+ Thêm nhân viên</button>
+      </div>
+    </div>
 
     <!-- Tabs -->
     <ul class="nav nav-tabs" id="adminTabs" role="tablist">
-      <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="rooms-tab" data-bs-toggle="tab" data-bs-target="#roomsTab" type="button" role="tab">Phòng</button>
-      </li>
-      <li class="nav-item" role="presentation">
-        <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#usersTab" type="button" role="tab">Nhân viên</button>
-      </li>
+      <li class="nav-item"><button class="nav-link active" id="rooms-tab" data-bs-toggle="tab" data-bs-target="#roomsTab">Phòng</button></li>
+      <li class="nav-item"><button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#usersTab">Nhân viên</button></li>
     </ul>
 
     <div class="tab-content mt-3">
-      <!-- Tab phòng -->
-      <div class="tab-pane fade show active" id="roomsTab" role="tabpanel">
-        <div id="roomsAdmin" class="row g-3"></div>
-        <button class="btn btn-primary mt-3" id="addRoomBtn">Thêm phòng</button>
+      <!-- Rooms -->
+      <div class="tab-pane fade show active" id="roomsTab">
+        <div class="mb-3 d-flex search-row">
+          <input id="rooms-search" class="form-control" placeholder="Tìm phòng theo tên, mã..." />
+          <div class="ms-auto">
+            <select id="rooms-per-page" class="form-select">
+              <option value="10">10 / trang</option>
+              <option value="25">25 / trang</option>
+              <option value="50">50 / trang</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle" id="roomsTable">
+            <thead class="table-dark">
+              <tr><th>Mã</th><th>Ảnh</th><th>Tên</th><th>Loại</th><th>Vị trí</th><th>Sức chứa</th><th>Thao tác</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="d-flex justify-content-between mt-2">
+          <div id="rooms-stats" class="text-muted"></div>
+          <div class="pagination-container">
+            <nav><ul id="rooms-pagination" class="pagination pagination-sm mb-0"></ul></nav>
+          </div>
+        </div>
       </div>
 
-      <!-- Tab nhân viên -->
-      <div class="tab-pane fade" id="usersTab" role="tabpanel">
-        <div id="usersAdmin">
-          <p>Đang tải danh sách nhân viên...</p>
+      <!-- Users -->
+      <div class="tab-pane fade" id="usersTab">
+        <div class="mb-3 d-flex search-row">
+          <input id="users-search" class="form-control" placeholder="Tìm nhân viên theo tên, email, ID..." />
+          <select id="filter-team" class="form-select ms-2" style="width:200px"></select>
+          <select id="filter-dept" class="form-select ms-2" style="width:200px"></select>
+          <select id="users-per-page" class="form-select ms-auto" style="width:110px">
+            <option value="10">10 / trang</option>
+            <option value="25">25 / trang</option>
+            <option value="50">50 / trang</option>
+          </select>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle" id="usersTable">
+            <thead class="table-light">
+              <tr>
+                <th>Avatar</th><th>ID</th><th>Tên</th><th>Email</th><th>Team</th><th>Phòng ban</th><th>Chức vụ</th><th>Chi nhánh</th><th>Role</th><th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="d-flex justify-content-between mt-2">
+          <div id="users-stats" class="text-muted"></div>
+          <div class="pagination-container">
+            <nav><ul id="users-pagination" class="pagination pagination-sm mb-0"></ul></nav>
+          </div>
         </div>
       </div>
     </div>
   </main>
 
-
+  <!-- FOOTER -->
   <footer class="bg-dark text-white text-center py-3 mt-5">
     &copy; 2025 DNSE
   </footer>
 
-  <script>
-  async function api(path, opts={}){
-    const res = await fetch('/api' + path, opts);
-    if(!res.ok) throw new Error(await res.text());
-    return res.json();
-  }
-  async function load(){
-    const rooms = await api('/rooms');
-    const el = document.getElementById('roomsAdmin');
-    el.innerHTML='';
-    rooms.forEach(r=>{
-      const col = document.createElement('div');
-      col.className='col-md-4';
-      col.innerHTML = `<div class="card p-2"><img src="${r.image}" class="img-fluid"/><h5>${r.name}</h5><p>${r.description}</p></div>`;
-      el.appendChild(col);
-    })
-  }
-  load();
-  </script>
+  <!-- MODAL: Room Add/Edit (shared) -->
+  <div class="modal fade" id="modalRoom" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="modalRoomTitle"></h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <input type="hidden" id="roomId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Mã phòng</label>
+              <input id="room_code" class="form-control" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Tên phòng</label>
+              <input id="room_name" class="form-control" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Loại phòng</label>
+              <select id="room_type" class="form-select"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Vị trí</label>
+              <select id="room_location" class="form-select"></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Sức chứa</label>
+              <input id="room_capacity" type="number" class="form-control" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">URL ảnh</label>
+              <input id="room_image" class="form-control" />
+            </div>
+            <div class="col-12">
+              <label class="form-label">Mô tả</label>
+              <textarea id="room_description" class="form-control" rows="3"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button id="saveRoom" class="btn btn-primary">Lưu</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
+  <!-- MODAL: User Add/Edit -->
+  <div class="modal fade" id="modalUser" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="modalUserTitle"></h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+          <input type="hidden" id="user_id">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Mã nhân viên (ID)</label>
+              <input id="user_code" class="form-control" placeholder="E101" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Username</label>
+              <input id="user_username" class="form-control" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Mật khẩu (mặc định)</label>
+              <input id="user_password" type="password" class="form-control" placeholder="mật khẩu tạm thời" />
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Họ & tên</label>
+              <input id="user_fullname" class="form-control" />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input id="user_email" type="email" class="form-control" />
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Team</label>
+              <select id="user_team" class="form-select"></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Phòng ban</label>
+              <select id="user_dept" class="form-select"></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Chức vụ</label>
+              <select id="user_job" class="form-select"></select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Chi nhánh</label>
+              <select id="user_branch" class="form-select"></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Số điện thoại</label>
+              <input id="user_phone" class="form-control" />
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Ngày sinh</label>
+              <input id="user_dob" type="date" class="form-control" />
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">Role</label>
+              <select id="user_role" class="form-select">
+                <option value="user">user</option>
+                <option value="admin">admin</option>
+              </select>
+            </div>
+
+            <div class="col-md-8">
+              <label class="form-label">Avatar URL</label>
+              <input id="user_avatar" class="form-control" placeholder="https://..." />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button id="saveUser" class="btn btn-primary">Lưu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRM DELETE modal -->
+  <div class="modal fade" id="confirmDeleteModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Xác nhận</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><p id="confirmDeleteText">Bạn có chắc?</p></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+      <button id="confirmDeleteBtn" class="btn btn-danger">Xóa</button>
+    </div>
+  </div></div></div>
+
+  <!-- RESET PASSWORD modal -->
+  <div class="modal fade" id="resetPassModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Đặt lại mật khẩu</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <p>Nhập mật khẩu mới (hoặc để trống để đặt về mặc định <code>123456</code>):</p>
+      <input id="resetPasswordInput" class="form-control" placeholder="mật khẩu mới (tùy chọn)">
+      <div class="form-text mt-2">Sau khi reset, mật khẩu mới sẽ được hiển thị 1 lần để bạn gửi cho người dùng.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+      <button id="confirmResetPassBtn" class="btn btn-warning">Đặt lại</button>
+    </div>
+  </div></div></div>
+
+  <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/admin.js"></script>
-  <script src="js/main.js"></script>
 </body>
 </html>

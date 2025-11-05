@@ -63,6 +63,44 @@ app.get('/api/rooms', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// API chi tiết phòng + thiết bị
+app.get('/api/rooms/:id', async (req, res) => {
+  const roomId = req.params.id;
+
+  try {
+    // Lấy thông tin phòng
+    const [roomRows] = await db.query(`
+      SELECT 
+        r.id, r.name, r.image, rt.description AS room_description, rt.default_capacity AS capacity,
+        rt.id AS room_type_id, CONCAT('Tầng ', l.floor, ' - ', b.name) AS location_name,
+        rt.type_name AS room_type
+      FROM rooms r
+      LEFT JOIN room_types rt ON r.room_type_id = rt.id
+      LEFT JOIN locations l ON r.location_id = l.id
+      LEFT JOIN branches b ON l.branch_id = b.id
+      WHERE r.id = ?
+    `, [roomId]);
+
+    if (roomRows.length === 0) return res.status(404).json({ error: 'Không tìm thấy phòng' });
+
+    const room = roomRows[0];
+
+    // Lấy danh sách thiết bị của loại phòng
+    const [equipments] = await db.query(`
+      SELECT e.name, e.description, rte.quantity
+      FROM room_type_equipment rte
+      JOIN equipments e ON rte.equipment_id = e.id
+      WHERE rte.room_type_id = ?
+    `, [room.room_type_id]);
+
+    // Trả về JSON
+    res.json({ ...room, equipment: equipments });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // API cập nhật thông tin phòng
 app.put('/api/rooms/:id', async (req, res) => {
@@ -201,10 +239,15 @@ app.get('/api/users', async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT u.id,
+      u.username,
+      u.role_id,
       up.full_name, 
       up.email,
+      d.id AS department_id,
       d.name AS department,
+      j.id AS job_title_id,
       j.name AS job_title,
+      t.id AS team_id,
       t.name AS team,
       b.id AS branch_id,
       b.name AS branch_name
@@ -221,6 +264,136 @@ app.get('/api/users', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// users-api.js
+const bcrypt = require('bcrypt');
+module.exports = function(app, db) {
+  // GET single user (detailed)
+  app.get('/api/users/:id', async (req, res) => {
+    try {
+      const id = req.params.id;
+      const [rows] = await db.query(`
+        SELECT u.id, u.username, u.role_id, u.department_id, u.team_id, u.job_title_id,
+               up.full_name, up.email, up.phone, up.avatar_url, up.date_of_birth, up.branch_id,
+               d.name AS department, t.name AS team, j.name AS job_title, b.name AS branch_name
+        FROM users u
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        LEFT JOIN departments d ON u.department_id = d.id
+        LEFT JOIN teams t ON u.team_id = t.id
+        LEFT JOIN job_titles j ON u.job_title_id = j.id
+        LEFT JOIN branches b ON up.branch_id = b.id
+        WHERE u.id = ?
+        LIMIT 1
+      `, [id]);
+      if (!rows.length) return res.status(404).json({ error: 'Không tìm thấy user' });
+      res.json(rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+  });
+
+  // POST create user
+  app.post('/api/users', async (req, res) => {
+    const { user, profile, associations } = req.body;
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // check id unique
+      const [exists] = await conn.query('SELECT 1 FROM users WHERE id = ?', [user.id]);
+      if (exists.length) {
+        await conn.rollback();
+        return res.status(400).json({ error: 'ID đã tồn tại' });
+      }
+
+      const password = user.password || '123456';
+      const hash = await bcrypt.hash(password, 10);
+
+      await conn.query(`INSERT INTO users (id, username, password_hash, role_id, department_id, team_id, job_title_id, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+                        [user.id, user.username, hash, user.role_id || 'user', associations.department_id || null, associations.team_id || null, associations.job_title_id || null]);
+
+      await conn.query(`INSERT INTO user_profiles (user_id, full_name, email, phone, avatar_url, date_of_birth, branch_id)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        [user.id, profile.full_name, profile.email, profile.phone || null, profile.avatar_url || null, profile.date_of_birth || null, profile.branch_id || null]);
+
+      await conn.commit();
+      res.json({ success: true });
+    } catch (err) {
+      await conn.rollback();
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    } finally { conn.release(); }
+  });
+
+  // PUT update user (user data + profile + associations)
+  app.put('/api/users/:id', async (req, res) => {
+    const id = req.params.id;
+    const { user, profile, associations } = req.body;
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      // update users table (username, role)
+      await conn.query(`UPDATE users SET username = ?, role_id = ?, department_id = ?, team_id = ?, job_title_id = ? WHERE id = ?`,
+                       [user.username, user.role_id || 'user', associations.department_id || null, associations.team_id || null, associations.job_title_id || null, id]);
+
+      // update profile (insert if not exists)
+      const [rows] = await conn.query('SELECT 1 FROM user_profiles WHERE user_id = ? LIMIT 1', [id]);
+      if (rows.length) {
+        await conn.query(`UPDATE user_profiles SET full_name = ?, email = ?, phone = ?, avatar_url = ?, date_of_birth = ?, branch_id = ? WHERE user_id = ?`,
+                         [profile.full_name, profile.email, profile.phone || null, profile.avatar_url || null, profile.date_of_birth || null, profile.branch_id || null, id]);
+      } else {
+        await conn.query(`INSERT INTO user_profiles (user_id, full_name, email, phone, avatar_url, date_of_birth, branch_id)
+                          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                          [id, profile.full_name, profile.email, profile.phone || null, profile.avatar_url || null, profile.date_of_birth || null, profile.branch_id || null]);
+      }
+
+      // optionally update password if provided
+      if (user.password && user.password.length) {
+        const hash = await bcrypt.hash(user.password, 10);
+        await conn.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, id]);
+      }
+
+      await conn.commit();
+      res.json({ success: true });
+    } catch (err) {
+      await conn.rollback();
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    } finally { conn.release(); }
+  });
+
+  // DELETE user
+  app.delete('/api/users/:id', async (req, res) => {
+    const id = req.params.id;
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      await conn.query('DELETE FROM user_profiles WHERE user_id = ?', [id]);
+      await conn.query('DELETE FROM users WHERE id = ?', [id]);
+      await conn.commit();
+      res.json({ success: true });
+    } catch (err) {
+      await conn.rollback();
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    } finally { conn.release(); }
+  });
+
+  // RESET password
+  app.put('/api/users/:id/reset-password', async (req, res) => {
+    const id = req.params.id;
+    let newPass = (req.body && req.body.new_password) ? req.body.new_password : '123456';
+    try {
+      const hash = await bcrypt.hash(newPass, 10);
+      await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, id]);
+      // return the new password in response (admin will communicate to user)
+      res.json({ success: true, new_password: newPass });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+};
+
 // API: lấy danh sách team
 app.get('/api/teams', async (req, res) => {
   try {

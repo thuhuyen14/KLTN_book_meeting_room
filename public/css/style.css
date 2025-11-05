@@ -258,3 +258,32 @@ img{max-width:100%;height:auto;}
     height: 200px; /* cố định chiều cao ảnh */
     object-fit: cover; /* crop ảnh vừa khung */
 }
+
+.room-wrapper {
+  position: relative;
+  cursor: pointer;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.room-wrapper .overlay {
+  pointer-events: none;   /* ✅ FIX CLICK */
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  font-size: 1.2rem;
+  transition: 0.25s;
+}
+
+.room-wrapper:hover .overlay {
+  opacity: 1;
+}
+
+.overlay i {
+  font-size: 2rem;
+}
