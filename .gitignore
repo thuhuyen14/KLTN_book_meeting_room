@@ -1,2 +1,5 @@
 node_modules/
 .env
+*.docx
+*.pdf
+public/demo_doc/

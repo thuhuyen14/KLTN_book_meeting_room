@@ -4,6 +4,121 @@ header{background: linear-gradient(90deg, #0b74de, #06b6d4);}
 .shadow-sm{box-shadow:0 4px 12px rgba(15,23,42,0.06);}
 .container h2{margin-top:10px;}
 img{max-width:100%;height:auto;}
+/* ===== Fonts & Basics ===== */
+body {
+  font-family: 'Roboto', sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* ===== Login page ===== */
+body.login-page {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: url('../images/office_bg.jpg') no-repeat center center / cover;
+  position: relative;
+}
+
+body.login-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom right, rgba(78, 84, 200, 0.3), rgba(78, 200, 200, 0.2));
+  backdrop-filter: blur(4px);
+  z-index: 0;
+}
+
+.login-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 400px;
+  background: rgba(255,255,255,0.95);
+  border-radius: 12px;
+  padding: 2.5rem 2rem;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+  transition: transform 0.3s, box-shadow 0.3s;
+  opacity: 0;
+  transform: translateY(20px);
+  animation: fadeInUp 0.6s forwards;
+}
+
+@keyframes fadeInUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.3);
+}
+
+.login-card h2 {
+  text-align: center;
+  margin-bottom: 1rem;
+  font-weight: 700;
+  color: #4e54c8;
+}
+
+.login-card .btn-primary {
+  background-color: #4e54c8;
+  border-color: #4e54c8;
+  width: 100%;
+  font-weight: 500;
+  transition: background-color 0.3s;
+}
+
+.login-card .btn-primary:hover {
+  background-color: #3b3fc1;
+}
+
+#loginError {
+  text-align: center;
+  margin-top: 1rem;
+  font-weight: 500;
+}
+
+/* Password visibility toggle */
+.input-group .form-control {
+  border-right: none;
+}
+
+.input-group-text {
+  background: white;
+  border-left: none;
+  cursor: pointer;
+}
+
+/* Slogan */
+.login-card .slogan {
+  text-align: center;
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: #4e54c8;
+  font-weight: 500;
+}
+
+/* ===== Index / General styling ===== */
+header.bg-primary {
+  background-color: #4e54c8 !important;
+}
+
+.btn-primary, .btn-success {
+  font-weight: 500;
+}
+
+.card-title i {
+  margin-right: 0.5rem;
+}
+
+.carousel-caption h5 {
+  font-weight: 700;
+}
+
 
 /* Đảm bảo carousel có kích thước cố định/nhất quán và ảnh không thay đổi layout */
 #mainCarousel { max-width: 900px; }
