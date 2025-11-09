@@ -35,6 +35,7 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/images', express.static(path.join(__dirname, 'public/images')));
 
 app.use('/api', authRoutes); // lấy api login từ đây
 
@@ -72,6 +73,7 @@ app.get('/api/rooms/:id', async (req, res) => {
     const [roomRows] = await db.query(`
       SELECT 
         r.id, r.name, r.image, rt.description AS room_description, rt.default_capacity AS capacity,
+        r.location_id,                
         rt.id AS room_type_id, CONCAT('Tầng ', l.floor, ' - ', b.name) AS location_name,
         rt.type_name AS room_type
       FROM rooms r
@@ -212,7 +214,7 @@ app.delete('/api/rooms/:id', async (req, res) => {
 });
 app.get('/api/room_types', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT id, description FROM room_types ORDER BY id');
+    const [rows] = await db.query('SELECT id, type_name, description, default_capacity FROM room_types ORDER BY id');
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -899,7 +901,7 @@ const storage = multer.diskStorage({
     cb(null, unique + path.extname(file.originalname));
   },
 });
-const upload = multer({ storage });
+const upload = multer({ storage });  // đây là biến upload doc cho nghiệp vụ Trình ký, tạm thời để tên này, chưa thay đổi vội tránh lỗi, biến upload ảnh để sau
 
 // Lấy danh sách văn bản
 app.get('/api/documents', async (req, res) => {
@@ -1048,6 +1050,26 @@ app.get('/api/documents/:id', async (req, res) => {
   }
 });
 
+// ==== UPLOAD ẢNH PHÒNG HỌP ====
+
+// Tạo thư mục public/images nếu chưa có
+const roomImageDir = path.join(process.cwd(), "public/images");
+if (!fs.existsSync(roomImageDir)) fs.mkdirSync(roomImageDir, { recursive: true });
+
+const storageRoomImages = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, roomImageDir),
+  filename: (req, file, cb) => {
+    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, unique + path.extname(file.originalname));
+  },
+});
+
+const uploadRoomImage = multer({ storage: storageRoomImages });
+
+// api image upload
+app.post('/api/upload_image', uploadRoomImage.single('image'), (req, res) => {
+  res.json({ url: '/images/' + req.file.filename });
+});
 
 // Phòng nào được book nhiều nhất (MySQL)
 app.get('/api/report/rooms', async (req, res) => {
