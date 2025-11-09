@@ -89,6 +89,7 @@ function openCreateRoomModal() {
   document.getElementById('room_type').value = '';
   document.getElementById('room_location').value = '';
   document.getElementById('room_image_file').value = '';
+  document.getElementById('room_image').value = '';
   new bootstrap.Modal(document.getElementById('modalRoom')).show();
 }
 
@@ -99,18 +100,23 @@ async function openRoomModal(id) {
   document.getElementById('room_code').value = r.id;
   document.getElementById('room_name').value = r.name;
   document.getElementById('room_capacity').value = r.capacity || '';
-  // document.getElementById('room_image').value = r.image || '';
   document.getElementById('room_description').value = r.room_description || '';
   document.getElementById('room_type').value = r.room_type_id || '';
   document.getElementById('room_location').value = r.location_id || '';
   document.getElementById('room_image_file').value = '';
+
+  // **Gán URL cũ vào input hiển thị**
+  document.getElementById('room_image').value = r.image || '';
+  // lưu URL cũ để khi save không upload mới vẫn giữ ảnh
+  document.getElementById('modalRoom').dataset.oldImage = r.image || '';
+
   new bootstrap.Modal(document.getElementById('modalRoom')).show();
 }
 
 // ------------------ SAVE ROOM ------------------
 async function saveRoom() {
   const id = document.getElementById('roomId').value.trim();
-  let imageUrl = r.image || "";
+  let imageUrl = document.getElementById('modalRoom').dataset.oldImage || "";
 
   const fileInput = document.getElementById('room_image_file');
   const file = fileInput?.files?.[0];
@@ -149,6 +155,8 @@ async function saveRoom() {
     alert("Lỗi: " + err.message);
   }
 }
+
+// ------------------ UTILS ------------------
 function normalizeImagePath(path) {
   if (!path) return '/images/placeholder.png';
   return path.startsWith('/') ? path : '/' + path;
