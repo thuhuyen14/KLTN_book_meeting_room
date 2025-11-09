@@ -1,20 +1,31 @@
 // ==============================
 // 🟦 XỬ LÝ LOGIN / LOGOUT & MENU
 // ==============================
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
   const token = localStorage.getItem("token");
   const role = localStorage.getItem("role");
   const full_name = localStorage.getItem("full_name");
-  const userMenu = document.getElementById("userMenu");
+  const avatar_url = localStorage.getItem("avatar_url"); // giả sử lưu avatar user
 
+  const userMenu = document.getElementById("userMenu");
   if (!userMenu) return;
 
-  // Nếu đã đăng nhập -> hiển thị menu tài khoản
+  // Hàm tạo avatar mặc định chữ cái đầu
+  function normalizeAvatar(url, name) {
+    if (url && url.trim() !== '') return url;
+    if (name && name.trim() !== '') {
+      const initial = encodeURIComponent(name.trim()[0].toUpperCase());
+      return `https://ui-avatars.com/api/?name=${initial}&background=random&color=fff&size=64`;
+    }
+    return 'images/avatar_default.png';
+  }
+
   if (token) {
+    const avatarSrc = normalizeAvatar(avatar_url, full_name);
     userMenu.innerHTML = `
       <li class="nav-item dropdown">
         <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
-          <img src="images/avatar_default.png" alt="avatar" class="rounded-circle me-2" width="30" height="30">
+          <img src="${avatarSrc}" alt="avatar" class="rounded-circle me-2" width="30" height="30">
           <span>${full_name || "Tài khoản"}</span>
         </a>
         <ul class="dropdown-menu dropdown-menu-end">

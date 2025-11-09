@@ -7,6 +7,22 @@ async function loadUsers() {
   const teams = await loadListCached('teams', '/teams');
   fillSelect(document.getElementById('filter-team'), teams, i=>i.id, i=>i.name, true);
 }
+function getUserAvatar(user) {
+  if (user.avatar_url) return user.avatar_url; // dùng avatar thật nếu có
+
+  // lấy chữ cái đầu của full_name, nếu không có thì dùng '?'
+  const initial = (user.full_name || '?').trim().charAt(0).toUpperCase();
+
+  // tạo SVG inline làm avatar
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+    <rect width="100%" height="100%" fill="#6c757d"/>
+    <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#fff">${initial}</text>
+  </svg>`;
+
+  // chuyển SVG thành data URI
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+}
+
 
 function renderUsers() {
   const q = (document.getElementById('users-search').value || '').toLowerCase();
@@ -29,11 +45,12 @@ function renderUsers() {
   p.data.forEach(u => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td><img src="${u.avatar_url || 'images/avatar-placeholder.png'}" class="avatar-sm" /></td>
+      <td><img src="${getUserAvatar(u)}" class="avatar-sm" /></td>
       <td class="fw-semibold">${u.id}</td>
       <td><strong>${u.full_name||''}</strong></td>
       <td>${u.email||''}</td>
       <td>${u.team||''}</td>
+      <td>${u.department||''}</td>
       <td>${u.job_title||''}</td>
       <td>${u.branch_name||''}</td>
       <td>${u.role_id||'user'}</td>
