@@ -7,21 +7,35 @@ async function loadUsers() {
   const teams = await loadListCached('teams', '/teams');
   fillSelect(document.getElementById('filter-team'), teams, i=>i.id, i=>i.name, true);
 }
+// function getUserAvatar(user) {
+//   if (user.avatar_url) return user.avatar_url; // dùng avatar thật nếu có
+
+//   const initial = (user.full_name || '?').trim().charAt(0).toUpperCase();
+
+//   // SVG có chữ cái đầu
+//   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+//     <rect width="100%" height="100%" fill="#6c757d"/>
+//     <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+//       font-family="Arial, sans-serif" font-size="20" fill="#fff">${initial}</text>
+//   </svg>`;
+
+//   // Chuyển SVG sang base64 an toàn cho Unicode (bỏ btoa)
+//   const base64 = window.btoa(unescape(encodeURIComponent(svg)));
+
+//   return `data:image/svg+xml;base64,${base64}`;
+// }
+
+// Hàm lấy avatar người dùng, nếu không có thì tạo avatar chữ cái đầu - version có màu ở avatar 
 function getUserAvatar(user) {
-  if (user.avatar_url) return user.avatar_url; // dùng avatar thật nếu có
+  if (user.avatar_url && user.avatar_url.trim() !== '') return user.avatar_url;
 
-  // lấy chữ cái đầu của full_name, nếu không có thì dùng '?'
-  const initial = (user.full_name || '?').trim().charAt(0).toUpperCase();
+  const name = user.full_name || '?';
+  const initial = encodeURIComponent(name.trim()[0].toUpperCase());
 
-  // tạo SVG inline làm avatar
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">
-    <rect width="100%" height="100%" fill="#6c757d"/>
-    <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, sans-serif" font-size="20" fill="#fff">${initial}</text>
-  </svg>`;
-
-  // chuyển SVG thành data URI
-  return `data:image/svg+xml;base64,${btoa(svg)}`;
+  // Dùng ui-avatars.com để sinh avatar màu ngẫu nhiên
+  return `https://ui-avatars.com/api/?name=${initial}&background=random&color=fff&size=40`;
 }
+
 
 
 function renderUsers() {
