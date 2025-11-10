@@ -79,8 +79,18 @@ function renderUsers() {
 
   document.getElementById('users-stats').textContent = `Hiển thị ${p.data.length}/${p.total} nhân viên`;
   renderPagination(document.getElementById('users-pagination'), p.pages, p.page, (page)=>{ usersState.page = page; renderUsers(); });
-
-  document.querySelectorAll('.edit-user').forEach(b => b.addEventListener('click', (e)=> openUserModal(e.target.closest('button').dataset.id)));
+  document.querySelectorAll('.edit-user').forEach(b =>
+    b.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      const userId = btn ? btn.dataset.id : null;
+      console.log('DEBUG: clicked edit user, id =', userId);
+      if (!userId) {
+        console.warn('User ID không hợp lệ');
+        return;
+      }
+      openUserModal(userId).catch(err => console.error('openUserModal lỗi:', err));
+    })
+  );
   document.querySelectorAll('.delete-user').forEach(b => b.addEventListener('click', (e)=> askDelete('user', e.target.closest('button').dataset.id)));
   document.querySelectorAll('.reset-user').forEach(b => b.addEventListener('click', (e)=> openResetModal(e.target.closest('button').dataset.id)));
 }

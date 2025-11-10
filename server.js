@@ -266,6 +266,31 @@ app.get('/api/users', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// GET user chi tiết theo ID
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const id = req.params.id;
+    const [rows] = await db.query(`
+      SELECT u.id, u.username, u.role_id, u.department_id, u.team_id, u.job_title_id,
+             up.full_name, up.email, up.phone, up.avatar_url, up.date_of_birth, up.branch_id,
+             d.name AS department, t.name AS team, j.name AS job_title, b.name AS branch_name
+      FROM users u
+      LEFT JOIN user_profiles up ON u.id = up.user_id
+      LEFT JOIN departments d ON u.department_id = d.id
+      LEFT JOIN teams t ON u.team_id = t.id
+      LEFT JOIN job_titles j ON u.job_title_id = j.id
+      LEFT JOIN branches b ON up.branch_id = b.id
+      WHERE u.id = ?
+      LIMIT 1
+    `, [id]);
+
+    if (!rows.length) return res.status(404).json({ error: 'Không tìm thấy user' });
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // users-api.js
 const bcrypt = require('bcrypt');
 module.exports = function(app, db) {
