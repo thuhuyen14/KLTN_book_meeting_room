@@ -421,6 +421,41 @@ module.exports = function(app, db) {
   });
 };
 
+app.put('/api/users/:id', async (req, res) => {
+  // code update user
+});
+
+// Danh sách phòng ban
+app.get('/api/departments', async (req, res) => {
+  try {
+    const [rows] = await db.query(`SELECT id, name FROM departments ORDER BY name`);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Danh sách chức vụ
+app.get('/api/job_titles', async (req, res) => {
+  try {
+    const [rows] = await db.query(`SELECT id, name FROM job_titles ORDER BY name`);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Danh sách chi nhánh
+app.get('/api/branches', async (req, res) => {
+  try {
+    const [rows] = await db.query(`SELECT id, name FROM branches ORDER BY name`);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // API: lấy danh sách team
 app.get('/api/teams', async (req, res) => {
   try {

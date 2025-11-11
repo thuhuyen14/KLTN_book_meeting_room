@@ -111,6 +111,7 @@ async function openUserModal(id) {
   document.getElementById('user_id').value = u.id;
   document.getElementById('user_code').value = u.id;
   document.getElementById('user_username').value = u.username || '';
+  document.getElementById('user_password').value = '';
   document.getElementById('user_fullname').value = u.full_name || '';
   document.getElementById('user_email').value = u.email || '';
   document.getElementById('user_phone').value = u.phone || '';
@@ -120,17 +121,38 @@ async function openUserModal(id) {
   const teams = await loadListCached('teams', '/teams');
   fillSelect(document.getElementById('user_team'), teams);
   document.getElementById('user_team').value = u.team_id || '';
+
+  const depts = await loadListCached('departments', '/departments');
+  fillSelect(document.getElementById('user_dept'), depts);
+
+  const jobs = await loadListCached('jobs', '/job_titles');
+  fillSelect(document.getElementById('user_job'), jobs);
+
+  const branches = await loadListCached('branches', '/branches');
+  fillSelect(document.getElementById('user_branch'), branches);
+
+  document.getElementById('user_dept').value = u.department_id || '';
+  document.getElementById('user_job').value = u.job_title_id || '';
+  document.getElementById('user_branch').value = u.branch_id || '';
   new bootstrap.Modal(document.getElementById('modalUser')).show();
 }
 
 document.getElementById('saveUser').addEventListener('click', async () => {
   const id = document.getElementById('user_id').value.trim();
+  const passwordInput = document.getElementById('user_password').value.trim();
+
   const payloadUser = {
     id: document.getElementById('user_code').value.trim(),
     username: document.getElementById('user_username').value.trim(),
-    password: document.getElementById('user_password').value,
+    // password: document.getElementById('user_password').value,
     role_id: document.getElementById('user_role').value
   };
+
+  // Chỉ thêm field password nếu người dùng có nhập
+  if (passwordInput) {
+    payloadUser.password = passwordInput;
+  }
+
   const payloadProfile = {
     full_name: document.getElementById('user_fullname').value.trim(),
     email: document.getElementById('user_email').value.trim(),
