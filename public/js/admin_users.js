@@ -160,7 +160,12 @@ document.getElementById('saveUser').addEventListener('click', async () => {
     avatar_url: document.getElementById('user_avatar').value.trim(),
     date_of_birth: document.getElementById('user_dob').value || null
   };
-  const associations = { team_id: document.getElementById('user_team').value || null };
+  const associations = {
+    team_id: document.getElementById('user_team').value || null,
+    department_id: document.getElementById('user_dept').value || null,
+    job_title_id: document.getElementById('user_job').value || null,
+    branch_id: document.getElementById('user_branch').value || null
+};
 
   try {
     if (!payloadUser.id || !payloadUser.username || !payloadProfile.full_name || !payloadProfile.email) {

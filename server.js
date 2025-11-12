@@ -351,42 +351,42 @@ module.exports = function(app, db) {
   });
 
   // PUT update user (user data + profile + associations)
-  app.put('/api/users/:id', async (req, res) => {
-    const id = req.params.id;
-    const { user, profile, associations } = req.body;
-    const conn = await db.getConnection();
-    try {
-      await conn.beginTransaction();
+  // app.put('/api/users/:id', async (req, res) => {
+  //   const id = req.params.id;
+  //   const { user, profile, associations } = req.body;
+  //   const conn = await db.getConnection();
+  //   try {
+  //     await conn.beginTransaction();
 
-      // update users table (username, role)
-      await conn.query(`UPDATE users SET username = ?, role_id = ?, department_id = ?, team_id = ?, job_title_id = ? WHERE id = ?`,
-                       [user.username, user.role_id || 'user', associations.department_id || null, associations.team_id || null, associations.job_title_id || null, id]);
+  //     // update users table (username, role)
+  //     await conn.query(`UPDATE users SET username = ?, role_id = ?, department_id = ?, team_id = ?, job_title_id = ? WHERE id = ?`,
+  //                      [user.username, user.role_id || 'user', associations.department_id || null, associations.team_id || null, associations.job_title_id || null, id]);
 
-      // update profile (insert if not exists)
-      const [rows] = await conn.query('SELECT 1 FROM user_profiles WHERE user_id = ? LIMIT 1', [id]);
-      if (rows.length) {
-        await conn.query(`UPDATE user_profiles SET full_name = ?, email = ?, phone = ?, avatar_url = ?, date_of_birth = ?, branch_id = ? WHERE user_id = ?`,
-                         [profile.full_name, profile.email, profile.phone || null, profile.avatar_url || null, profile.date_of_birth || null, profile.branch_id || null, id]);
-      } else {
-        await conn.query(`INSERT INTO user_profiles (user_id, full_name, email, phone, avatar_url, date_of_birth, branch_id)
-                          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                          [id, profile.full_name, profile.email, profile.phone || null, profile.avatar_url || null, profile.date_of_birth || null, profile.branch_id || null]);
-      }
+  //     // update profile (insert if not exists)
+  //     const [rows] = await conn.query('SELECT 1 FROM user_profiles WHERE user_id = ? LIMIT 1', [id]);
+  //     if (rows.length) {
+  //       await conn.query(`UPDATE user_profiles SET full_name = ?, email = ?, phone = ?, avatar_url = ?, date_of_birth = ?, branch_id = ? WHERE user_id = ?`,
+  //                        [profile.full_name, profile.email, profile.phone || null, profile.avatar_url || null, profile.date_of_birth || null, profile.branch_id || null, id]);
+  //     } else {
+  //       await conn.query(`INSERT INTO user_profiles (user_id, full_name, email, phone, avatar_url, date_of_birth, branch_id)
+  //                         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  //                         [id, profile.full_name, profile.email, profile.phone || null, profile.avatar_url || null, profile.date_of_birth || null, profile.branch_id || null]);
+  //     }
 
-      // optionally update password if provided
-      if (user.password && user.password.length) {
-        const hash = await bcrypt.hash(user.password, 10);
-        await conn.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, id]);
-      }
+  //     // optionally update password if provided
+  //     if (user.password && user.password.length) {
+  //       const hash = await bcrypt.hash(user.password, 10);
+  //       await conn.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, id]);
+  //     }
 
-      await conn.commit();
-      res.json({ success: true });
-    } catch (err) {
-      await conn.rollback();
-      console.error(err);
-      res.status(500).json({ error: err.message });
-    } finally { conn.release(); }
-  });
+  //     await conn.commit();
+  //     res.json({ success: true });
+  //   } catch (err) {
+  //     await conn.rollback();
+  //     console.error(err);
+  //     res.status(500).json({ error: err.message });
+  //   } finally { conn.release(); }
+  // });
 
   // DELETE user
   app.delete('/api/users/:id', async (req, res) => {
@@ -422,8 +422,74 @@ module.exports = function(app, db) {
 };
 
 app.put('/api/users/:id', async (req, res) => {
-  // code update user
+  const id = req.params.id;
+  const { user = {}, profile = {}, associations = {} } = req.body;
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    await conn.query(`
+      UPDATE users
+      SET username = ?, role_id = ?, department_id = ?, team_id = ?, job_title_id = ?
+      WHERE id = ?`,
+      [
+        user.username,
+        user.role_id || 'user',
+        associations.department_id || null,
+        associations.team_id || null,
+        associations.job_title_id || null,
+        id
+      ]
+    );
+
+    const [rows] = await conn.query('SELECT 1 FROM user_profiles WHERE user_id = ? LIMIT 1', [id]);
+    if (rows.length) {
+      await conn.query(`
+        UPDATE user_profiles
+        SET full_name = ?, email = ?, phone = ?, avatar_url = ?, date_of_birth = ?, branch_id = ?
+        WHERE user_id = ?`,
+        [
+          profile.full_name,
+          profile.email,
+          profile.phone || null,
+          profile.avatar_url || null,
+          profile.date_of_birth || null,
+          profile.branch_id || null,
+          id
+        ]
+      );
+    } else {
+      await conn.query(`
+        INSERT INTO user_profiles (user_id, full_name, email, phone, avatar_url, date_of_birth, branch_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          id,
+          profile.full_name,
+          profile.email,
+          profile.phone || null,
+          profile.avatar_url || null,
+          profile.date_of_birth || null,
+          profile.branch_id || null
+        ]
+      );
+    }
+
+    if (user.password && user.password.length) {
+      const hash = await bcrypt.hash(user.password, 10);
+      await conn.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, id]);
+    }
+
+    await conn.commit();
+    res.json({ success: true, message: `User ${id} updated successfully` });
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
+  }
 });
+
 
 // Danh sách phòng ban
 app.get('/api/departments', async (req, res) => {
