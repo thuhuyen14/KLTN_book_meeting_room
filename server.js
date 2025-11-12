@@ -427,7 +427,19 @@ app.put('/api/users/:id', async (req, res) => {
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
+    
+    // 1. Lấy dữ liệu cũ
+    const [oldRows] = await conn.query(
+      `SELECT u.*, p.* 
+       FROM users u
+       LEFT JOIN user_profiles p ON u.id = p.user_id
+       WHERE u.id = ?`,
+      [id]
+    );
+    if (oldRows.length === 0) return res.status(404).json({ error: 'Không tìm thấy nhân viên' });
+    const oldData = oldRows[0];
 
+    // 2. Cập nhật dữ liệu users
     await conn.query(`
       UPDATE users
       SET username = ?, role_id = ?, department_id = ?, team_id = ?, job_title_id = ?
@@ -454,7 +466,7 @@ app.put('/api/users/:id', async (req, res) => {
           profile.phone || null,
           profile.avatar_url || null,
           profile.date_of_birth || null,
-          profile.branch_id || null,
+          associations.branch_id || null,
           id
         ]
       );
@@ -469,7 +481,7 @@ app.put('/api/users/:id', async (req, res) => {
           profile.phone || null,
           profile.avatar_url || null,
           profile.date_of_birth || null,
-          profile.branch_id || null
+          associations.branch_id || null
         ]
       );
     }
@@ -478,6 +490,20 @@ app.put('/api/users/:id', async (req, res) => {
       const hash = await bcrypt.hash(user.password, 10);
       await conn.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, id]);
     }
+        // 4. Ghi log vào audit_log
+    await conn.query(
+      `INSERT INTO audit_log (entity_type, entity_id, action, old_data, new_data, updated_by)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        'user',
+        id,
+        'update',
+        JSON.stringify(oldData),
+        JSON.stringify({ user, profile, associations }),
+        req.user?.email || 'admin_demo'
+      ]
+    );
+
 
     await conn.commit();
     res.json({ success: true, message: `User ${id} updated successfully` });
