@@ -317,38 +317,38 @@ module.exports = function(app, db) {
   });
 
   // POST create user
-  app.post('/api/users', async (req, res) => {
-    const { user, profile, associations } = req.body;
-    const conn = await db.getConnection();
-    try {
-      await conn.beginTransaction();
+  // app.post('/api/users', async (req, res) => {
+  //   const { user, profile, associations } = req.body;
+  //   const conn = await db.getConnection();
+  //   try {
+  //     await conn.beginTransaction();
 
-      // check id unique
-      const [exists] = await conn.query('SELECT 1 FROM users WHERE id = ?', [user.id]);
-      if (exists.length) {
-        await conn.rollback();
-        return res.status(400).json({ error: 'ID đã tồn tại' });
-      }
+  //     // check id unique
+  //     const [exists] = await conn.query('SELECT 1 FROM users WHERE id = ?', [user.id]);
+  //     if (exists.length) {
+  //       await conn.rollback();
+  //       return res.status(400).json({ error: 'ID đã tồn tại' });
+  //     }
 
-      const password = user.password || '123456';
-      const hash = await bcrypt.hash(password, 10);
+  //     const password = user.password || '123456';
+  //     const hash = await bcrypt.hash(password, 10);
 
-      await conn.query(`INSERT INTO users (id, username, password_hash, role_id, department_id, team_id, job_title_id, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-                        [user.id, user.username, hash, user.role_id || 'user', associations.department_id || null, associations.team_id || null, associations.job_title_id || null]);
+  //     await conn.query(`INSERT INTO users (id, username, password_hash, role_id, department_id, team_id, job_title_id, created_at)
+  //                       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+  //                       [user.id, user.username, hash, user.role_id || 'user', associations.department_id || null, associations.team_id || null, associations.job_title_id || null]);
 
-      await conn.query(`INSERT INTO user_profiles (user_id, full_name, email, phone, avatar_url, date_of_birth, branch_id)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                        [user.id, profile.full_name, profile.email, profile.phone || null, profile.avatar_url || null, profile.date_of_birth || null, profile.branch_id || null]);
+  //     await conn.query(`INSERT INTO user_profiles (user_id, full_name, email, phone, avatar_url, date_of_birth, branch_id)
+  //                       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  //                       [user.id, profile.full_name, profile.email, profile.phone || null, profile.avatar_url || null, profile.date_of_birth || null, profile.branch_id || null]);
 
-      await conn.commit();
-      res.json({ success: true });
-    } catch (err) {
-      await conn.rollback();
-      console.error(err);
-      res.status(500).json({ error: err.message });
-    } finally { conn.release(); }
-  });
+  //     await conn.commit();
+  //     res.json({ success: true });
+  //   } catch (err) {
+  //     await conn.rollback();
+  //     console.error(err);
+  //     res.status(500).json({ error: err.message });
+  //   } finally { conn.release(); }
+  // });
 
   // PUT update user (user data + profile + associations)
   // app.put('/api/users/:id', async (req, res) => {
@@ -389,37 +389,179 @@ module.exports = function(app, db) {
   // });
 
   // DELETE user
-  app.delete('/api/users/:id', async (req, res) => {
-    const id = req.params.id;
-    const conn = await db.getConnection();
-    try {
-      await conn.beginTransaction();
-      await conn.query('DELETE FROM user_profiles WHERE user_id = ?', [id]);
-      await conn.query('DELETE FROM users WHERE id = ?', [id]);
-      await conn.commit();
-      res.json({ success: true });
-    } catch (err) {
-      await conn.rollback();
-      console.error(err);
-      res.status(500).json({ error: err.message });
-    } finally { conn.release(); }
-  });
+  // app.delete('/api/users/:id', async (req, res) => {
+  //   const id = req.params.id;
+  //   const conn = await db.getConnection();
+  //   try {
+  //     await conn.beginTransaction();
+  //     await conn.query('DELETE FROM user_profiles WHERE user_id = ?', [id]);
+  //     await conn.query('DELETE FROM users WHERE id = ?', [id]);
+  //     await conn.commit();
+  //     res.json({ success: true });
+  //   } catch (err) {
+  //     await conn.rollback();
+  //     console.error(err);
+  //     res.status(500).json({ error: err.message });
+  //   } finally { conn.release(); }
+  // });
 
-  // RESET password
-  app.put('/api/users/:id/reset-password', async (req, res) => {
-    const id = req.params.id;
-    let newPass = (req.body && req.body.new_password) ? req.body.new_password : '123456';
-    try {
-      const hash = await bcrypt.hash(newPass, 10);
-      await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, id]);
-      // return the new password in response (admin will communicate to user)
-      res.json({ success: true, new_password: newPass });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: err.message });
-    }
-  });
+  // // RESET password
+  // app.put('/api/users/:id/reset-password', async (req, res) => {
+  //   const id = req.params.id;
+  //   let newPass = (req.body && req.body.new_password) ? req.body.new_password : '123456';
+  //   try {
+  //     const hash = await bcrypt.hash(newPass, 10);
+  //     await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, id]);
+  //     // return the new password in response (admin will communicate to user)
+  //     res.json({ success: true, new_password: newPass });
+  //   } catch (err) {
+  //     console.error(err);
+  //     res.status(500).json({ error: err.message });
+  //   }
+  // });
 };
+
+// DELETE user
+app.delete('/api/users/:id', async (req, res) => {
+  const id = req.params.id;
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // Lấy dữ liệu cũ để log
+    const [oldRows] = await conn.query(`
+      SELECT u.*, p.full_name, p.email, p.phone
+      FROM users u
+      LEFT JOIN user_profiles p ON u.id = p.user_id
+      WHERE u.id = ?
+    `, [id]);
+
+    if (!oldRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Không tìm thấy nhân viên để xóa' });
+    }
+
+    const oldData = oldRows[0];
+
+    await conn.query('DELETE FROM user_profiles WHERE user_id = ?', [id]);
+    await conn.query('DELETE FROM users WHERE id = ?', [id]);
+
+    // Ghi audit log
+    await conn.query(`
+      INSERT INTO audit_log (entity_type, entity_id, action, old_data, new_data, updated_by)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [
+      'user',
+      id,
+      'delete',
+      JSON.stringify(oldData),
+      null,
+      req.user?.email || 'admin_demo'
+    ]);
+
+    await conn.commit();
+    res.json({ success: true });
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  } finally { conn.release(); }
+});
+
+// RESET password
+app.put('/api/users/:id/reset-password', async (req, res) => {
+  const id = req.params.id;
+  const newPass = (req.body && req.body.new_password) ? req.body.new_password : '123456';
+  try {
+    const hash = await bcrypt.hash(newPass, 10);
+    await db.query('UPDATE users SET password_hash = ? WHERE id = ?', [hash, id]);
+
+    await db.query(`
+      INSERT INTO audit_log (entity_type, entity_id, action, old_data, new_data, updated_by)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [
+      'user',
+      id,
+      'reset_password',
+      null,
+      JSON.stringify({ new_password: newPass }),
+      req.user?.email || 'admin_demo'
+    ]);
+
+    res.json({ success: true, new_password: newPass });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+app.post('/api/users', async (req, res) => {
+  const { user = {}, profile = {}, associations = {} } = req.body;
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // Tạo ID mới kiểu E001, E002...
+    const [rows] = await conn.query(`SELECT id FROM users ORDER BY id DESC LIMIT 1`);
+    let newId = 'E001';
+    if (rows.length) {
+      const last = rows[0].id;
+      const num = parseInt(last.replace('E', ''), 10) + 1;
+      newId = 'E' + num.toString().padStart(3, '0');
+    }
+
+    const password = user.password || '123456';
+    const hash = await bcrypt.hash(password, 10);
+
+    await conn.query(`
+      INSERT INTO users (id, username, password_hash, role_id, department_id, team_id, job_title_id, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+    `, [
+      newId,
+      user.username,
+      hash,
+      user.role_id || 'user',
+      associations.department_id || null,
+      associations.team_id || null,
+      associations.job_title_id || null
+    ]);
+
+    await conn.query(`
+      INSERT INTO user_profiles (user_id, full_name, email, phone, avatar_url, date_of_birth, branch_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [
+      newId,
+      profile.full_name,
+      profile.email,
+      profile.phone || null,
+      profile.avatar_url || null,
+      profile.date_of_birth || null,
+      profile.branch_id || null
+    ]);
+
+    // Ghi audit log
+    await conn.query(`
+      INSERT INTO audit_log (entity_type, entity_id, action, old_data, new_data, updated_by)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [
+      'user',
+      newId,
+      'insert',
+      null,
+      JSON.stringify({ user, profile, associations }),
+      req.user?.email || 'admin_demo'
+    ]);
+
+    await conn.commit();
+    res.json({ success: true, id: newId });
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  } finally { conn.release(); }
+});
+
 
 app.put('/api/users/:id', async (req, res) => {
   const id = req.params.id;

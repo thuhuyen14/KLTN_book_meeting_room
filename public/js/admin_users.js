@@ -95,15 +95,49 @@ function renderUsers() {
   document.querySelectorAll('.reset-user').forEach(b => b.addEventListener('click', (e)=> openResetModal(e.target.closest('button').dataset.id)));
 }
 
-document.getElementById('btn-create-user').addEventListener('click', async ()=>{
+document.getElementById('btn-create-user').addEventListener('click', async () => {
   document.getElementById('modalUserTitle').textContent = 'Thêm nhân viên mới';
-  ['user_id','user_code','user_username','user_password','user_fullname','user_email','user_phone','user_dob','user_avatar']
+
+  // Reset các input khác (trừ user_code và password)
+  ['user_id','user_username','user_fullname','user_email','user_phone','user_dob','user_avatar']
     .forEach(id => document.getElementById(id).value = '');
+
+  // Role mặc định
   document.getElementById('user_role').value = 'user';
-  const teams = await loadListCached('teams', '/teams');
+
+  // Tự sinh mã nhân viên mới
+  let newId = 'E001';
+  if (USERS.length) {
+    const lastId = USERS.map(u => u.id)
+                        .filter(id => id.startsWith('E'))
+                        .sort()
+                        .pop();
+    if (lastId) {
+      const num = parseInt(lastId.replace('E',''),10) + 1;
+      newId = 'E' + num.toString().padStart(3,'0');
+    }
+  }
+  document.getElementById('user_code').value = newId;
+
+  // Điền sẵn mật khẩu mặc định
+  document.getElementById('user_password').value = '123456';
+
+  // Load tất cả danh sách select
+  const [teams, departments, jobTitles, branches] = await Promise.all([
+    loadListCached('teams', '/teams'),
+    loadListCached('departments', '/departments'),
+    loadListCached('job_titles', '/job_titles'),
+    loadListCached('branches', '/branches')
+  ]);
+
   fillSelect(document.getElementById('user_team'), teams);
+  fillSelect(document.getElementById('user_dept'), departments);
+  fillSelect(document.getElementById('user_job'), jobTitles);
+  fillSelect(document.getElementById('user_branch'), branches);
+
   new bootstrap.Modal(document.getElementById('modalUser')).show();
 });
+
 
 async function openUserModal(id) {
   const u = await api(`/users/${id}`);
@@ -168,8 +202,8 @@ document.getElementById('saveUser').addEventListener('click', async () => {
 };
 
   try {
-    if (!payloadUser.id || !payloadUser.username || !payloadProfile.full_name || !payloadProfile.email) {
-      alert('Vui lòng nhập ID, username, họ tên và email');
+    if ( !payloadUser.username || !payloadProfile.full_name || !payloadProfile.email) {
+      alert('Vui lòng nhập username, họ tên và email');
       return;
     }
 
