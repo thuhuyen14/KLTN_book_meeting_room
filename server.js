@@ -537,7 +537,7 @@ app.post('/api/users', async (req, res) => {
       profile.phone || null,
       profile.avatar_url || null,
       profile.date_of_birth || null,
-      profile.branch_id || null
+      associations.branch_id || null
     ]);
 
     // Ghi audit log
@@ -657,6 +657,73 @@ app.put('/api/users/:id', async (req, res) => {
     conn.release();
   }
 });
+// ------------------------
+// CREATE template (POST)
+// ------------------------
+app.post('/api/document_templates', async (req, res) => {
+  const { name, description, content, file_url } = req.body;
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // --- Tạo ID tự sinh ---
+    const [rows] = await conn.query("SELECT id FROM document_templates ORDER BY id DESC LIMIT 1");
+    let id;
+    if (!rows.length) {
+      id = 'DT001';
+    } else {
+      const lastId = rows[0].id;           // ví dụ 'DT042'
+      const num = parseInt(lastId.replace(/^DT/, ''), 10) + 1;
+      id = 'DT' + String(num).padStart(3, '0');
+    }
+
+    // --- Thêm vào bảng ---
+    await conn.query(`INSERT INTO document_templates
+      (id, name, description, content, file_url, created_by, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [id, name, description || null, content || null, file_url || null, req.user?.email || 'admin_demo']
+    );
+
+    // --- Audit log ---
+    await conn.query(`INSERT INTO audit_log
+      (entity_type, entity_id, action, old_data, new_data, updated_by)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+      ['document_template', id, 'create', null, JSON.stringify({ name, description, content, file_url }), req.user?.email || 'admin_demo']
+    );
+
+    await conn.commit();
+    res.json({ success: true, id });
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  } finally { conn.release(); }
+});
+// ------------------------
+// GET all document templates
+// ------------------------
+// GET all document templates
+// ------------------------
+app.get('/api/document_templates', async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    const [rows] = await conn.query(`
+      SELECT dt.id, dt.name, dt.description, dt.content, dt.file_path AS file_url,
+             dt.created_by, up.full_name AS created_by_name, dt.created_at
+      FROM document_templates dt
+      LEFT JOIN user_profiles up ON dt.created_by = up.user_id
+      ORDER BY dt.created_at DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
+  }
+});
+
+
 
 
 // Danh sách phòng ban

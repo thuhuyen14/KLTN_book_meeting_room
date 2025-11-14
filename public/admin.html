@@ -14,6 +14,11 @@
   <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 
   <link rel="stylesheet" href="css/style.css">
+  <!-- dùng cho template modals -->
+  <!-- Quill CSS -->
+  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+  <!-- Quill JS -->
+  <script src="https://cdn.quilljs.com/1.3.7/quill.js"></script>
 
   <style>
     /* Small styling for modern look */
@@ -73,16 +78,19 @@
   <main class="container my-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h2 class="mb-0">Quản trị hệ thống</h2>
-      <div>
+      <div class="d-flex">
         <button id="btn-create-room" class="btn btn-outline-primary me-2">+ Thêm phòng</button>
-        <button id="btn-create-user" class="btn btn-success">+ Thêm nhân viên</button>
+        <button id="btn-create-user" class="btn btn-success me-2">+ Thêm nhân viên</button>
+        <button id="btn-create-doc" class="btn btn-outline-info">+ Thêm mẫu văn bản</button>
       </div>
     </div>
+
 
     <!-- Tabs -->
     <ul class="nav nav-tabs" id="adminTabs" role="tablist">
       <li class="nav-item"><button class="nav-link active" id="rooms-tab" data-bs-toggle="tab" data-bs-target="#roomsTab">Phòng</button></li>
       <li class="nav-item"><button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#usersTab">Nhân viên</button></li>
+      <li class="nav-item"><button class="nav-link" id="templates-tab" data-bs-toggle="tab" data-bs-target="#templatesTab">Mẫu văn bản</button></li>
     </ul>
 
     <div class="tab-content mt-3">
@@ -143,6 +151,37 @@
           <div id="users-stats" class="text-muted"></div>
           <div class="pagination-container">
             <nav><ul id="users-pagination" class="pagination pagination-sm mb-0"></ul></nav>
+          </div>
+        </div>
+      </div>
+
+      <!-- Templates -->
+       <!-- Document Templates -->
+      <div class="tab-pane fade" id="templatesTab">
+        <div class="mb-3 d-flex search-row">
+          <input id="docs-search" class="form-control" placeholder="Tìm mẫu theo tên..." />
+          <select id="docs-per-page" class="form-select ms-auto" style="width:110px">
+            <option value="10">10 / trang</option>
+            <option value="25">25 / trang</option>
+            <option value="50">50 / trang</option>
+          </select>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-hover align-middle" id="docsTable">
+            <thead class="table-light">
+              <tr>
+                <th>ID</th><th>Tên mẫu</th><th>Mô tả</th><th>Người tạo</th><th>Ngày tạo</th><th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="d-flex justify-content-between mt-2">
+          <div id="docs-stats" class="text-muted"></div>
+          <div class="pagination-container">
+            <nav><ul id="docs-pagination" class="pagination pagination-sm mb-0"></ul></nav>
           </div>
         </div>
       </div>
@@ -308,12 +347,50 @@
     </div>
   </div></div></div>
 
+  
+  <!-- DOC modal -->
+  <div class="modal fade" id="modalDoc" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalDocTitle"></h5>
+          <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="doc_id">
+          <div class="mb-3">
+            <label class="form-label">Tên mẫu</label>
+            <input id="doc_name" class="form-control" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Mô tả</label>
+            <input id="doc_description" class="form-control" />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Nội dung mẫu</label>
+            <div id="doc_content_editor" style="height: 200px; background:#fff; border:1px solid #ced4da;"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">URL file (PDF)</label>
+            <input id="doc_file_url" class="form-control" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+          <button id="saveDoc" class="btn btn-primary">Lưu</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
   <!-- SCRIPTS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/main.js"></script>
   <script src="js/admin.js"></script>
   <script src="js/admin_rooms.js"></script>
   <script src="js/admin_users.js"></script>
+  <script src="js/admin_docs.js"></script>
 
 </body>
 </html>

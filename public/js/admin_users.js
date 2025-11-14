@@ -31,9 +31,16 @@ function getUserAvatar(user) {
 
   const name = user.full_name || '?';
   const initial = encodeURIComponent(name.trim()[0].toUpperCase());
+  // Danh sách màu pastel
+  const colors = ['F9A8D4','FFB86F','FFE066','81E6D9','A3BFFA','FF8A80','B07B7B']; 
 
+  // Chọn màu dựa trên hash của tên
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  const color = colors[Math.abs(hash) % colors.length];
+  return `https://ui-avatars.com/api/?name=${initial}&background=${color}&color=333&size=40`;
   // Dùng ui-avatars.com để sinh avatar màu ngẫu nhiên
-  return `https://ui-avatars.com/api/?name=${initial}&background=random&color=fff&size=40`;
+  // return `https://ui-avatars.com/api/?name=${initial}&background=random&color=fff&size=40`;
 }
 
 
