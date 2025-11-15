@@ -661,46 +661,52 @@ app.put('/api/users/:id', async (req, res) => {
 // CREATE template (POST)
 // ------------------------
 app.post('/api/document_templates', async (req, res) => {
-  const { name, description, content, file_url } = req.body;
+  const { name, description, content, file_path, created_by } = req.body;
   const conn = await db.getConnection();
+
   try {
     await conn.beginTransaction();
 
-    // --- Tạo ID tự sinh ---
-    const [rows] = await conn.query("SELECT id FROM document_templates ORDER BY id DESC LIMIT 1");
-    let id;
-    if (!rows.length) {
-      id = 'DT001';
-    } else {
-      const lastId = rows[0].id;           // ví dụ 'DT042'
-      const num = parseInt(lastId.replace(/^DT/, ''), 10) + 1;
-      id = 'DT' + String(num).padStart(3, '0');
-    }
-
     // --- Thêm vào bảng ---
-    await conn.query(`INSERT INTO document_templates
-      (id, name, description, content, file_url, created_by, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-      [id, name, description || null, content || null, file_url || null, req.user?.email || 'admin_demo']
-    );
+    const [result] = await conn.query(`
+      INSERT INTO document_templates
+        (name, description, content, file_path, created_by, created_at)
+      VALUES (?, ?, ?, ?, ?, NOW())
+    `, [
+      name,
+      description || null,
+      content || null,
+      file_path || null,
+      created_by // phải là ID hợp lệ trong bảng users
+    ]);
+
+    const newId = result.insertId; // id tự tăng
 
     // --- Audit log ---
-    await conn.query(`INSERT INTO audit_log
-      (entity_type, entity_id, action, old_data, new_data, updated_by)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-      ['document_template', id, 'create', null, JSON.stringify({ name, description, content, file_url }), req.user?.email || 'admin_demo']
-    );
+    await conn.query(`
+      INSERT INTO audit_log
+        (entity_type, entity_id, action, old_data, new_data, updated_by)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [
+      'document_template',
+      newId,
+      'create',
+      null,
+      JSON.stringify({ name, description, content, file_path }),
+      created_by
+    ]);
 
     await conn.commit();
-    res.json({ success: true, id });
+    res.json({ success: true, id: newId });
   } catch (err) {
     await conn.rollback();
     console.error(err);
     res.status(500).json({ error: err.message });
-  } finally { conn.release(); }
+  } finally {
+    conn.release();
+  }
 });
-// ------------------------
-// GET all document templates
+
 // ------------------------
 // GET all document templates
 // ------------------------
@@ -708,7 +714,7 @@ app.get('/api/document_templates', async (req, res) => {
   const conn = await db.getConnection();
   try {
     const [rows] = await conn.query(`
-      SELECT dt.id, dt.name, dt.description, dt.content, dt.file_path AS file_url,
+      SELECT dt.id, dt.name, dt.description, dt.content, dt.file_path,
              dt.created_by, up.full_name AS created_by_name, dt.created_at
       FROM document_templates dt
       LEFT JOIN user_profiles up ON dt.created_by = up.user_id
@@ -723,6 +729,31 @@ app.get('/api/document_templates', async (req, res) => {
   }
 });
 
+app.get('/api/document_templates/:id', async (req, res) => {
+  const { id } = req.params;
+  const conn = await db.getConnection();
+  try {
+    const [rows] = await conn.query(`
+      SELECT dt.id, dt.name, dt.description, dt.content, dt.file_path,
+             dt.created_by, up.full_name AS created_by_name, dt.created_at
+      FROM document_templates dt
+      LEFT JOIN user_profiles up ON dt.created_by = up.user_id
+      WHERE dt.id = ?
+      LIMIT 1
+    `, [id]);
+
+    if (!rows.length) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
+  }
+});
 
 
 

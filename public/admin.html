@@ -372,7 +372,7 @@
           </div>
           <div class="mb-3">
             <label class="form-label">URL file (PDF)</label>
-            <input id="doc_file_url" class="form-control" />
+            <input id="doc_file_path" class="form-control" />
           </div>
         </div>
         <div class="modal-footer">
@@ -382,6 +382,20 @@
       </div>
     </div>
   </div>
+  <!--modal xem nội dung văn bản--> 
+  <div class="modal fade" id="modalViewDoc" tabindex="-1">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="viewDocTitle">Xem mẫu văn bản</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="viewDocContent" class="border p-3" style="min-height:200px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 
   <!-- SCRIPTS -->
