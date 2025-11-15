@@ -755,6 +755,71 @@ app.get('/api/document_templates/:id', async (req, res) => {
   }
 });
 
+// ------------------------
+// UPDATE document template
+// ------------------------
+app.put('/api/document_templates/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, description, content, file_path, updated_by } = req.body;
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // Lấy dữ liệu cũ để ghi audit
+    const [oldRows] = await conn.query(
+      `SELECT * FROM document_templates WHERE id = ? LIMIT 1`,
+      [id]
+    );
+    if (!oldRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    const oldData = oldRows[0];
+
+    // Update
+    await conn.query(
+      `
+      UPDATE document_templates
+      SET name = ?, description = ?, content = ?, file_path = ?
+      WHERE id = ?
+      `,
+      [
+        name,
+        description || null,
+        content || null,
+        file_path || null,
+        id
+      ]
+    );
+
+    // Audit log
+    await conn.query(
+      `
+      INSERT INTO audit_log
+        (entity_type, entity_id, action, old_data, new_data, updated_by)
+      VALUES (?, ?, ?, ?, ?, ?)
+      `,
+      [
+        'document_template',
+        id,
+        'update',
+        JSON.stringify(oldData),
+        JSON.stringify({ name, description, content, file_path }),
+        updated_by
+      ]
+    );
+
+    await conn.commit();
+    res.json({ success: true });
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    conn.release();
+  }
+});
 
 
 // Danh sách phòng ban

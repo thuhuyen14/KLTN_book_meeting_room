@@ -402,3 +402,58 @@ header.bg-primary {
 .overlay i {
   font-size: 2rem;
 }
+#docsTable {
+  border-collapse: collapse !important;
+}
+
+#docsTable th,
+#docsTable td {
+  white-space: nowrap;
+  vertical-align: middle;
+  padding: 8px 12px !important;
+  height: 48px !important;
+  line-height: 48px !important;
+  border: 1px solid transparent; /* tránh co giãn khi hover */
+}
+
+
+#docsTable td.truncate {
+  max-width: 280px; /* giữ rộng tối đa nếu muốn */
+  white-space: normal; /* cho phép xuống dòng */
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* khóa chiều cao tuyệt đối cho tất cả các hàng */
+#docsTable tr,
+#docsTable tr td,
+#docsTable tr th {
+  height: auto !important;
+  line-height: normal !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+
+
+/* dropdown menu cùng màu navbar */
+.navbar-dark .dropdown-menu {
+  background-color: #212529; /* giống bg-dark của navbar */
+  color: #fff;
+}
+
+.navbar-dark .dropdown-menu .dropdown-item {
+  color: #fff;
+}
+
+.navbar-dark .dropdown-menu .dropdown-item:hover,
+.navbar-dark .dropdown-menu .dropdown-item:focus {
+  background-color: #343a40; /* màu hover hợp với theme */
+  color: #fff;
+}
+/* hover mở dropdown */
+.nav-item.dropdown:hover > .dropdown-menu {
+  display: block;
+}
+.nav-item.dropdown .dropdown-menu {
+  margin-top: 0; /* tránh cách quá xa */
+}
