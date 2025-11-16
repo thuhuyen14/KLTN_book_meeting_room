@@ -1,16 +1,14 @@
-// ==============================
-// 🟦 XỬ LÝ LOGIN / LOGOUT & MENU
-// ==============================
-document.addEventListener("DOMContentLoaded", async () => {
+// Chạy sau khi navbar đã load xong
+function initNavbar() {
+  // User menu
   const token = localStorage.getItem("token");
   const role = localStorage.getItem("role");
   const full_name = localStorage.getItem("full_name");
-  const avatar_url = localStorage.getItem("avatar_url"); // giả sử lưu avatar user
-
+  const avatar_url = localStorage.getItem("avatar_url");
   const userMenu = document.getElementById("userMenu");
+
   if (!userMenu) return;
 
-  // Hàm tạo avatar mặc định chữ cái đầu
   function normalizeAvatar(url, name) {
     if (url && url.trim() !== '') return url;
     if (name && name.trim() !== '') {
@@ -36,50 +34,37 @@ document.addEventListener("DOMContentLoaded", async () => {
         </ul>
       </li>
     `;
-
     const logoutBtn = document.getElementById("logoutBtn");
     if (logoutBtn) {
       logoutBtn.addEventListener("click", () => {
-        // Xóa toàn bộ dữ liệu phiên
         localStorage.clear();
         sessionStorage.clear();
-
-        // Reset menu & thông báo
         userMenu.innerHTML = `<li class="nav-item"><a class="btn btn-outline-light ms-2" href="login.html">Đăng nhập</a></li>`;
         const notifList = document.getElementById("notification-list");
         const notifCount = document.getElementById("notification-count");
         if (notifList) notifList.innerHTML = '<li>Chưa có thông báo nào</li>';
         if (notifCount) notifCount.textContent = '0';
-
-        // Vẫn ở index.html, không redirect
       });
     }
   } else {
-    // Nếu chưa đăng nhập -> hiển thị nút đăng nhập
     userMenu.innerHTML = `<li class="nav-item"><a class="btn btn-outline-light ms-2" href="login.html">Đăng nhập</a></li>`;
   }
 
-  // ===== 3️⃣ Kiểm tra quyền truy cập trang khác =====
-  const protectedPages = ["profile.html", "booking.html", "other.html"]; // danh sách các trang cần login
-  const currentPage = window.location.pathname.split("/").pop();
-  if (!token && protectedPages.includes(currentPage)) {
-    alert("Vui lòng đăng nhập để sử dụng tính năng này");
-    window.location.href = "login.html"; // redirect về login
-  }
-});
+  // Notifications
+  loadNotifications();
 
-// ==============================
-// 🟨 THÔNG BÁO NGƯỜI DÙNG (Notification)
-// ==============================
-const notifBell = document.getElementById('notification-bell');
-const notifDropdown = document.getElementById('notification-dropdown');
-// const notifList = document.getElementById('notification-list');
-// const notifCount = document.getElementById('notification-count');
+  // Active link
+  const path = window.location.pathname.split("/").pop();
+  document.querySelectorAll(".navbar-nav .nav-link").forEach(link => link.classList.remove("active"));
+  const currentLink = document.querySelector(`.navbar-nav .nav-link[href='${path}']`);
+  if (currentLink) currentLink.classList.add("active");
+}
 
+// Thông báo
 async function loadNotifications() {
   const notifList = document.getElementById('notification-list');
   const notifCount = document.getElementById('notification-count');
-  const userId = localStorage.getItem('id'); // ID người đăng nhập
+  const userId = localStorage.getItem('id');
   if (!userId || !notifList || !notifCount) return;
 
   try {
@@ -94,44 +79,15 @@ async function loadNotifications() {
     } else {
       notifCount.textContent = data.length;
       data.forEach(n => {
-      const li = document.createElement('li');
-      try {
+        const li = document.createElement('li');
         const createdAt = new Date(n.created_at);
-        if (isNaN(createdAt)) throw new Error('Invalid date');
-        
-        const formattedDate = createdAt.toLocaleString('vi-VN', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false
-        });
-        
+        const formattedDate = isNaN(createdAt) ? n.created_at :
+          createdAt.toLocaleString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false});
         li.textContent = `${formattedDate} - ${n.message}`;
-      } catch (err) {
-        console.warn('Lỗi format thời gian:', err, n.created_at);
-        // fallback nếu có lỗi định dạng
-        li.textContent = `${n.created_at} - ${n.message}`;
-      }
-      notifList.appendChild(li);
-    });
-
+        notifList.appendChild(li);
+      });
     }
   } catch (err) {
     console.error('Lỗi khi tải thông báo:', err);
   }
 }
-
-if (notifBell && notifDropdown) {
-  notifBell.addEventListener('click', () => {
-    notifDropdown.classList.toggle('d-none');
-  });
-}
-
-// Load thông báo khi mở trang
-loadNotifications();
-
-// Refresh định kỳ mỗi 60s
-setInterval(loadNotifications, 60000);

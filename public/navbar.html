@@ -1,0 +1,53 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container">
+    <a class="navbar-brand d-flex align-items-center" href="index.html">
+      <img src="images/dnse_logo_notext.png" alt="DNSE Logo" style="height:30px; width:auto; margin-right:8px;">
+      <span class="text-white fw-bold">DNSE Meeting</span>
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="nav">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item"><a class="nav-link" href="rooms.html">Danh sách phòng</a></li>
+        <li class="nav-item"><a class="nav-link" href="booking.html">Đặt phòng</a></li>
+        <li class="nav-item"><a class="nav-link" href="schedule.html">Lịch họp</a></li>
+
+        <!-- Dropdown Trình ký với subtab -->
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">Trình ký</a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="documents.html">Văn bản trình ký</a></li>
+            <li><a class="dropdown-item" href="templates.html">Mẫu trình ký</a></li>
+          </ul>
+        </li>
+
+        <li class="nav-item"><a class="nav-link" href="users.html">Nhân viên</a></li>
+        <li class="nav-item"><a class="nav-link" href="admin.html">Quản trị</a></li>
+        <li class="nav-item"><a class="nav-link" href="report.html">Thống kê</a></li>
+      </ul>
+
+      <ul class="navbar-nav ms-auto">
+        <!-- Notification bell -->
+        <li class="nav-item dropdown me-3">
+          <a class="nav-link position-relative" href="#" id="notification-bell" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-bell" style="font-size: 1.4rem; color: white;"></i>
+            <span id="notification-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">0</span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end" style="min-width: 300px;">
+            <li class="dropdown-header fw-bold">Thông báo</li>
+            <li>
+              <div id="notification-list" style="max-height: 250px; overflow-y:auto;">Đang tải...</div>
+            </li>
+          </ul>
+        </li>
+
+        <!-- User menu -->
+        <li class="nav-item dropdown" id="userMenu">
+          <!-- Nội dung được load bằng main.js -->
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>

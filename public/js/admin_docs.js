@@ -91,25 +91,7 @@ function renderTemplates() {
     btn.addEventListener('click', e => askDelete('document_templates', e.target.closest('button').dataset.id))
   );
 }
-
-// ------------------ VIEW MODE ------------------
-// async function openViewDocModal(id) {
-//   const t = await api(`/document_templates/${id}`);
-
-//   document.getElementById('modalDocTitle').textContent = `Xem mẫu ${t.id}`;
-
-//   document.getElementById('doc_id').value = t.id;
-//   document.getElementById('doc_name').value = t.name || '';
-//   document.getElementById('doc_description').value = t.description || '';
-//   document.getElementById('doc_file_path').value = t.file_path || '';
-
-//   quillDoc.setContents(quillDoc.clipboard.convert(t.content || ''));
-//   quillDoc.enable(false);
-
-//   document.getElementById('saveDoc').style.display = 'none';
-
-//   new bootstrap.Modal(document.getElementById('modalDoc')).show();
-// }
+// ------------------ VIEW ------------------
 async function openViewDocModal(id) {
   try {
     const res = await fetch(`/api/document_templates/${id}`);

@@ -434,26 +434,15 @@ header.bg-primary {
   padding-bottom: 8px !important;
 }
 
-
-/* dropdown menu cùng màu navbar */
-.navbar-dark .dropdown-menu {
-  background-color: #212529; /* giống bg-dark của navbar */
-  color: #fff;
-}
-
-.navbar-dark .dropdown-menu .dropdown-item {
-  color: #fff;
-}
-
-.navbar-dark .dropdown-menu .dropdown-item:hover,
-.navbar-dark .dropdown-menu .dropdown-item:focus {
-  background-color: #343a40; /* màu hover hợp với theme */
-  color: #fff;
-}
-/* hover mở dropdown */
-.nav-item.dropdown:hover > .dropdown-menu {
-  display: block;
-}
-.nav-item.dropdown .dropdown-menu {
-  margin-top: 0; /* tránh cách quá xa */
+/* Chỉ dành cho desktop */
+@media (min-width: 992px) {
+  .navbar .dropdown:hover .dropdown-menu {
+    display: block;
+    margin-top: 0;
+    pointer-events: none; /* chặn click khi chưa hover */
+  }
+  
+  .navbar .dropdown:hover .dropdown-menu {
+    pointer-events: auto; /* cho phép click khi hover */
+  }
 }
