@@ -410,6 +410,45 @@ $(document).on('click', '.sign-btn', async function () {
 //     select.append(new Option(name, u.id));
 //   });
 // }
+// 1. Hàm tải danh sách cuộc họp cho Modal Sửa
+async function loadBookingsForEdit() {
+  try {
+    const res = await fetch('/api/bookings/list');
+    const data = await res.json();
+    const select = $('#editBookingId');
+    
+    // Reset và thêm option mặc định
+    select.empty().append('<option value="">-- Không chọn --</option>');
+    
+    data.forEach(b => {
+      // Tạo option hiển thị Tên cuộc họp + Thời gian
+      const time = new Date(b.start_time).toLocaleString('vi-VN');
+      const opt = new Option(`${b.title} (${time})`, b.id);
+      select.append(opt);
+    });
+  } catch (err) {
+    console.error("Lỗi load bookings edit:", err);
+  }
+}
+
+// 2. Hàm tải danh sách người dùng cho Modal Sửa
+async function loadSignersForEdit() {
+  try {
+    const res = await fetch('/api/users');
+    const data = await res.json();
+    const select = $('#editSigners');
+    
+    select.empty();
+    
+    data.forEach(u => {
+      // Ưu tiên hiển thị Fullname, nếu không có thì lấy Username
+      const name = u.full_name || u.username || '(Không tên)';
+      select.append(new Option(name, u.id));
+    });
+  } catch (err) {
+    console.error("Lỗi load signers edit:", err);
+  }
+}
 // ✅ EDIT DOCUMENT (Đã chỉnh sửa logic nhận dữ liệu)
 $(document).on('click', '.edit-doc-btn', async function() {
   const docId = $(this).data('id');
