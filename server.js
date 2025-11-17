@@ -1370,11 +1370,12 @@ app.get('/api/documents', async (req, res) => {
         d.file_path,
         d.status,
         b.title AS booking_title,
-        u.username AS creator_name,
-        d.created_at
+        up.full_name AS creator_name,
+        d.created_at,
+        d.created_by
       FROM documents d
       LEFT JOIN bookings b ON d.booking_id = b.id
-      LEFT JOIN users u ON d.created_by = u.id
+      LEFT JOIN user_profiles up ON d.created_by = up.user_id
       ORDER BY d.created_at DESC
     `);
     res.json(rows);
@@ -1383,20 +1384,6 @@ app.get('/api/documents', async (req, res) => {
   }
 });
 
-// Thêm mới văn bản + upload file
-app.post('/api/documents', upload.single('file'), async (req, res) => {
-  try {
-    const { booking_id, title, created_by } = req.body;
-    const fileUrl = `/demo_doc/${req.file.filename}`;
-    const [result] = await db.query(`
-      INSERT INTO documents (booking_id, title, file_path, created_by)
-      VALUES (?, ?, ?, ?)
-    `, [booking_id, title, fileUrl, created_by]);
-    res.json({ id: result.insertId, message: 'Tải và lưu văn bản thành công' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 app.get('/api/documents/:id/signers', async (req, res) => {
   try {
@@ -1441,26 +1428,30 @@ app.post('/api/documents/:id/sign', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-
-app.post("/api/documents/upload", upload.single("file"), async (req, res) => {
+// ============================================
+// 1️⃣ TẠO VĂN BẢN MỚI (luôn là Nháp)
+// ============================================
+app.post("/api/documents", upload.single("file"), async (req, res) => {
   const conn = await db.getConnection();
   try {
-    const { title, content, booking_id, created_by, signers } = req.body;
-    const filePath = `/demo_doc/${req.file.filename}`;
+    const { title, description, booking_id, created_by, signers, generated_body, template_id } = req.body;
+    const filePath = req.file ? `/demo_doc/${req.file.filename}` : null;
     const parsedSigners = JSON.parse(signers || "[]");
 
     await conn.beginTransaction();
 
+    // ✅ Luôn tạo với status = 'Nháp'
     const [result] = await conn.query(
-      `INSERT INTO documents (title, content, file_path, booking_id, created_by, status)
-       VALUES (?, ?, ?, ?, ?, 'Đang trình ký')`,
-      [title, content, filePath, booking_id || null, created_by]
+      `INSERT INTO documents 
+       (title, description, file_path, generated_body, template_id, booking_id, created_by, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'Nháp')`,
+      [title, description || null, filePath, generated_body || null, template_id || null, booking_id || null, created_by]
     );
     const documentId = result.insertId;
 
+    // ✅ Lưu người ký với status = 'Chờ trình ký' (chưa gửi)
     if (parsedSigners.length > 0) {
-      const signerValues = parsedSigners.map(id => [documentId, id, 'Đang trình ký']);
+      const signerValues = parsedSigners.map(id => [documentId, id, 'Chờ trình ký']);
       await conn.query(
         `INSERT INTO document_signers (document_id, signer_id, status) VALUES ?`,
         [signerValues]
@@ -1471,11 +1462,119 @@ app.post("/api/documents/upload", upload.single("file"), async (req, res) => {
     res.json({ success: true, id: documentId });
   } catch (err) {
     await conn.rollback();
+    console.error(err);
     res.status(500).json({ success: false, error: err.message });
   } finally {
     conn.release();
   }
 });
+
+// ============================================
+// 2️⃣ TRÌNH KÝ VĂN BẢN (Nháp → Đang trình ký)
+// ============================================
+app.post("/api/documents/:id/submit", async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    const docId = req.params.id;
+
+    await conn.beginTransaction();
+
+    // Kiểm tra văn bản tồn tại và là Nháp
+    const [doc] = await conn.query(`SELECT * FROM documents WHERE id = ?`, [docId]);
+    if (!doc.length) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, error: "Không tìm thấy văn bản" });
+    }
+    
+    if (doc[0].status !== 'Nháp') {
+      await conn.rollback();
+      return res.status(400).json({ success: false, error: "Chỉ văn bản nháp mới có thể trình ký" });
+    }
+
+    // Kiểm tra có người ký không
+    const [signers] = await conn.query(
+      `SELECT COUNT(*) as count FROM document_signers WHERE document_id = ?`,
+      [docId]
+    );
+
+    if (signers[0].count === 0) {
+      await conn.rollback();
+      return res.status(400).json({ success: false, error: "Vui lòng thêm người ký trước khi trình ký" });
+    }
+
+    // ✅ Cập nhật status văn bản
+    await conn.query(`UPDATE documents SET status = 'Đang trình ký' WHERE id = ?`, [docId]);
+
+    // ✅ Cập nhật status tất cả người ký: Chờ trình ký → Đang trình ký
+    await conn.query(
+      `UPDATE document_signers SET status = 'Đang trình ký' WHERE document_id = ? AND status = 'Chờ trình ký'`,
+      [docId]
+    );
+
+    await conn.commit();
+    res.json({ success: true });
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    conn.release();
+  }
+});
+
+// ============================================
+// 3️⃣ CẬP NHẬT VĂN BẢN (chỉ cho Nháp)
+// ============================================
+app.put('/api/documents/:id', async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    const { title, description, booking_id, signers } = req.body;
+    const docId = req.params.id;
+    
+    await conn.beginTransaction();
+
+    // ✅ Kiểm tra chỉ cho phép sửa Nháp
+    const [doc] = await conn.query(`SELECT status FROM documents WHERE id = ?`, [docId]);
+    if (!doc.length) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, error: "Không tìm thấy văn bản" });
+    }
+
+    if (doc[0].status !== 'Nháp') {
+      await conn.rollback();
+      return res.status(400).json({ success: false, error: "Chỉ văn bản nháp mới có thể chỉnh sửa" });
+    }
+    
+    // Update thông tin văn bản
+    await conn.query(`
+      UPDATE documents 
+      SET title = ?, description = ?, booking_id = ?
+      WHERE id = ?
+    `, [title, description || null, booking_id || null, docId]);
+    
+    // Xóa người ký cũ
+    await conn.query(`DELETE FROM document_signers WHERE document_id = ?`, [docId]);
+    
+    // ✅ Thêm người ký mới với status = 'Chờ trình ký'
+    if (signers && signers.length > 0) {
+      const signerValues = signers.map(id => [docId, id, 'Chờ trình ký']);
+      await conn.query(`
+        INSERT INTO document_signers (document_id, signer_id, status) VALUES ?
+      `, [signerValues]);
+    }
+    
+    await conn.commit();
+    res.json({ success: true });
+  } catch (err) {
+    await conn.rollback();
+    console.error(err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    conn.release();
+  }
+});
+
+
 app.get('/api/documents/file/:filename', (req, res) => {
   const filePath = path.join(process.cwd(), 'public', 'demo_doc', req.params.filename);
 
@@ -1493,20 +1592,94 @@ app.get('/api/documents/file/:filename', (req, res) => {
   res.sendFile(filePath);
 });
 
+// ✅update GET /api/documents/:id
 app.get('/api/documents/:id', async (req, res) => {
+  const conn = await db.getConnection(); // Lấy connection từ pool
   try {
-    const [rows] = await db.query(`
-      SELECT id, title, status
-      FROM documents
-      WHERE id = ?
-    `, [req.params.id]);
-    if (rows.length === 0) return res.status(404).json({ error: 'Document not found' });
-    res.json(rows[0]);
+    const docId = req.params.id;
+    // 1. Lấy thông tin văn bản (Query của bạn)
+    const [rows] = await conn.query(`
+      SELECT 
+        d.*,
+        up.full_name as creator_name,
+        b.title as booking_title
+      FROM documents d
+      LEFT JOIN users u ON d.created_by = u.id
+      LEFT JOIN user_profiles up ON u.id = up.user_id
+      LEFT JOIN bookings b ON d.booking_id = b.id
+      WHERE d.id = ?
+    `, [docId]);
+    if (rows.length === 0) {
+      conn.release();
+      return res.status(404).json({ error: 'Không tìm thấy văn bản' });
+    }
+    const document = rows[0]; // Thông tin văn bản
+    // 2. Lấy danh sách ID người ký
+    const [signerRows] = await conn.query(`
+      SELECT signer_id FROM document_signers WHERE document_id = ?
+    `, [docId]);
+    // Biến mảng [ {signer_id: 2}, {signer_id: 5} ] thành [2, 5]
+    const signers = signerRows.map(row => row.signer_id);
+    // 3. Trả về cả hai trong một object
+    res.json({
+      document: document,
+      signers: signers
+    });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
+  } finally {
+    if (conn) conn.release(); // Luôn giải phóng connection
   }
 });
 
+// // API: Cập nhật văn bản
+// app.put('/api/documents/:id', async (req, res) => {
+//   const conn = await db.getConnection();
+//   try {
+//     const { title, description, booking_id, signers } = req.body;
+//     const docId = req.params.id;
+    
+//     await conn.beginTransaction();
+    
+//     // Update thông tin văn bản
+//     await conn.query(`
+//       UPDATE documents 
+//       SET title = ?, description = ?, booking_id = ?
+//       WHERE id = ?
+//     `, [title, description || null, booking_id || null, docId]);
+    
+//     // Xóa người ký cũ
+//     await conn.query(`DELETE FROM document_signers WHERE document_id = ?`, [docId]);
+    
+//     // Thêm người ký mới
+//     if (signers && signers.length > 0) {
+//       const signerValues = signers.map(id => [docId, id, 'Đang trình ký']);
+//       await conn.query(`
+//         INSERT INTO document_signers (document_id, signer_id, status) VALUES ?
+//       `, [signerValues]);
+      
+//       // Cập nhật status văn bản
+//       await conn.query(`
+//         UPDATE documents SET status = 'Đang trình ký' WHERE id = ?
+//       `, [docId]);
+//     } else {
+//       // Không có người ký → về Nháp
+//       await conn.query(`
+//         UPDATE documents SET status = 'Nháp' WHERE id = ?
+//       `, [docId]);
+//     }
+    
+//     await conn.commit();
+//     res.json({ success: true });
+//   } catch (err) {
+//     await conn.rollback();
+//     console.error(err);
+//     res.status(500).json({ success: false, error: err.message });
+//   } finally {
+//     conn.release();
+//   }
+// });
 // ==== UPLOAD ẢNH PHÒNG HỌP ====
 
 // Tạo thư mục public/images nếu chưa có

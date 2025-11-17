@@ -9,6 +9,12 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+    <!-- Quill CSS -->
+  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+
+  <!-- Quill JS -->
+  <script src="https://cdn.quilljs.com/1.3.7/quill.js"></script>
+
 </head>
 <body>
   <!-- Navbar -->
@@ -47,6 +53,7 @@
   <!-- Modal: tạo mới văn bản -->
 
 <!-- Modal -->
+<!-- Modal -->
 <div class="modal fade" id="createDocModal" tabindex="-1" aria-labelledby="createDocLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
@@ -56,6 +63,7 @@
       </div>
       <div class="modal-body">
         <form id="createDocForm" enctype="multipart/form-data">
+
           <div class="mb-3">
             <label class="form-label">Tiêu đề</label>
             <input type="text" class="form-control" id="docTitle" name="title" required>
@@ -63,30 +71,90 @@
 
           <div class="mb-3">
             <label class="form-label">Nội dung mô tả</label>
-            <textarea class="form-control" id="docContent" name="content" rows="4" required></textarea>
+            <textarea class="form-control" id="docContent" name="description" rows="4"></textarea>
           </div>
 
           <div class="mb-3">
             <label class="form-label">Chọn cuộc họp liên quan</label>
-            <select class="form-select" id="bookingId" name="booking_id">
-              <!-- <option value="">-- Chọn cuộc họp --</option> -->
+            <select class="form-select" id="bookingId" name="booking_id"></select>
+          </div>
+
+          <!-- TEMPLATE -->
+          <div class="mb-3">
+            <label class="form-label">Chọn mẫu văn bản (tùy chọn)</label>
+            <select class="form-select" id="templateId" name="template_id">
+              <option value="">-- Không dùng mẫu --</option>
             </select>
           </div>
 
-          <div class="mb-3">
+          <!-- Vùng text để người dùng chỉnh sửa nội dung mẫu -->
+          <div class="mb-3" id="templateEditorWrapper" style="display:none;">
+            <label class="form-label">Nội dung từ mẫu</label>
+            <div id="docBody" style="height: 300px;"></div>
+          </div>
+
+
+          <!-- Upload file (bắt buộc nếu KHÔNG dùng template) -->
+          <div class="mb-3" id="fileUploadWrapper">
             <label class="form-label">Tải lên file văn bản (PDF hoặc DOCX)</label>
-            <input type="file" class="form-control" id="docFile" name="file" accept=".pdf,.doc,.docx" required>
+            <input type="file" class="form-control" id="docFile" name="file" accept=".pdf,.doc,.docx">
           </div>
 
           <div class="mb-3">
             <label class="form-label">Người ký</label>
-            <select id="signers" name="signers" multiple class="form-select">
-            </select>
+            <select id="signers" name="signers" multiple class="form-select"></select>
           </div>
 
+          <!-- <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-upload"></i> Lưu và trình ký
+          </button> -->
+          <div class="d-flex gap-2 mt-3">
+            <button type="button" id="saveDraftBtn" class="btn btn-secondary w-50">
+              💾 Lưu nháp
+            </button>
+            <button type="button" id="submitBtn" class="btn btn-primary w-50">
+              📤 Lưu và trình ký
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Modal: Sửa văn bản -->
+<div class="modal fade" id="editDocModal" tabindex="-1" aria-labelledby="editDocLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editDocLabel">Chỉnh sửa văn bản</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+      </div>
+      <div class="modal-body">
+        <form id="editDocForm">
+          <input type="hidden" id="editDocId">
+          
+          <div class="mb-3">
+            <label class="form-label">Tiêu đề</label>
+            <input type="text" class="form-control" id="editDocTitle" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Nội dung mô tả</label>
+            <textarea class="form-control" id="editDocDescription" rows="4"></textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Chọn cuộc họp liên quan</label>
+            <select class="form-select" id="editBookingId"></select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Người ký</label>
+            <select id="editSigners" multiple class="form-select"></select>
+          </div>
 
           <button type="submit" class="btn btn-primary w-100">
-            <i class="bi bi-upload"></i> Lưu và trình ký
+            <i class="bi bi-save"></i> Lưu thay đổi
           </button>
         </form>
       </div>
@@ -117,7 +185,13 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-0">
-        <iframe id="docPreviewFrame" style="width:100%;height:100%;" frameborder="0"></iframe>
+        <!-- ✅ Frame cho PDF -->
+        <iframe id="docPreviewFrame" style="width:100%;height:100%;display:none;" frameborder="0"></iframe>
+        
+        <!-- ✅ Container cho HTML content từ template -->
+        <div id="docGeneratedContent" style="display:none; padding: 30px; overflow-y: auto; height: 100%; background: white;">
+          <!-- Nội dung HTML sẽ được load vào đây -->
+        </div>
       </div>
     </div>
   </div>
@@ -133,6 +207,30 @@
       });
     });
   </script>
+  <script>
+  // Khi chọn template → load nội dung
+  $("#templateId").on("change", async function () {
+    const id = $(this).val();
+    if (!id) {
+      quill.setContents([{ insert: '\n' }]); // ✅ reset Quill editor
+      $("#templateEditorWrapper").hide();
+      $("#docFile").prop("required", true); // ✅ dùng prop thay vì attr
+      $("#fileUploadWrapper").show();
+      return;
+    }
+    try {
+      const res = await fetch(`/api/document_templates/${id}`); // ✅ sửa URL
+      const t = await res.json();
+      quill.root.innerHTML = t.content || ""; // ✅ dùng Quill
+      $("#templateEditorWrapper").show();
+      $("#fileUploadWrapper").hide();
+      $("#docFile").prop("required", false); // ✅ dùng prop
+    } catch (err) {
+      console.error("Không load được template", err);
+    }
+  });
+</script>
+
   <!-- Select2 -->
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
