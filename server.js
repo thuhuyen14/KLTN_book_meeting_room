@@ -1750,6 +1750,101 @@ app.get('/api/report/users', async (req, res) => {
   }
 });
 
+app.get("/api/report/docs/status", async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT status, COUNT(*) AS count
+      FROM documents
+      GROUP BY status
+    `);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.get("/api/report/docs/signers", async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT up.full_name, COUNT(ds.document_id) AS count
+      FROM document_signers ds
+      JOIN users u ON ds.signer_id = u.id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      GROUP BY ds.signer_id
+      ORDER BY count DESC
+    `);
+
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.get("/api/report/docs/days", async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT DATE(created_at) AS day, COUNT(*) AS count
+      FROM documents
+      GROUP BY day
+      ORDER BY day ASC
+    `);
+
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.get("/api/report/overview", async (req, res) => {
+  try {
+    // Tổng số cuộc họp
+    const [meetings] = await db.query(`SELECT COUNT(*) AS total FROM bookings`);
+
+    // Tổng số văn bản
+    const [docs] = await db.query(`SELECT COUNT(*) AS total FROM documents`);
+
+    // Số user đang hoạt động
+    const [users] = await db.query(`SELECT COUNT(*) AS total FROM users`);
+
+    // Biểu đồ hoạt động hệ thống (cuộc họp + trình ký theo ngày)
+    const [activity] = await db.query(`
+      SELECT day, SUM(count) AS count FROM (
+        SELECT DATE(start_time) AS day, COUNT(*) AS count
+        FROM bookings
+        GROUP BY day
+        
+        UNION ALL
+        
+        SELECT DATE(created_at) AS day, COUNT(*) AS count
+        FROM documents
+        GROUP BY day
+      ) AS t
+      GROUP BY day
+      ORDER BY day ASC
+    `);
+
+    res.json({
+      totalMeetings: meetings[0].total,
+      totalDocuments: docs[0].total,
+      activeUsers: users[0].total,
+      activity
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.get('/api/report/rooms/hours', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT HOUR(start_time) AS hour, COUNT(id) AS count
+      FROM bookings
+      GROUP BY hour
+      ORDER BY hour
+    `);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // Serve index.html for any other route (SPA fallback)
 app.get('*', (req, res) => {
