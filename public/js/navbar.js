@@ -8,6 +8,21 @@ function initNavbar() {
   const userMenu = document.getElementById("userMenu");
 
   if (!userMenu) return;
+  // ===== 4️⃣ Phân quyền admin =====
+  const isAdmin = role?.toLowerCase() === 'administrator'; // lấy tên role, tránh nhầm role_id với role name
+  const currentPage = window.location.pathname.split("/").pop();
+  const adminPages = ["admin.html", "report.html"];
+
+  if (!isAdmin) {
+    // Ẩn tab admin
+    document.querySelectorAll(".admin-only").forEach(tab => tab.style.display = "none");
+
+    // Chặn truy cập trực tiếp
+    if (adminPages.includes(currentPage)) {
+      alert("Bạn không có quyền truy cập trang này");
+      window.location.href = "index.html";
+    }
+  }
 
   function normalizeAvatar(url, name) {
     if (url && url.trim() !== '') return url;

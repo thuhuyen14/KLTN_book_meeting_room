@@ -99,8 +99,8 @@ function applyUserFilter() {
     rows.forEach(row => {
         const name = removeVietnameseTones(row.children[1].textContent.toLowerCase());
         const dept = row.children[3].textContent;
-        const job = row.children[4].textContent;    // thêm dòng này
-        const branch = row.children[5].textContent;
+        const job = row.children[5].textContent;    // thêm dòng này
+        const branch = row.children[6].textContent;
 
         const matchName = name.includes(nameFilter);
         const matchDept = !deptFilter || dept === deptFilter;
