@@ -53,4 +53,43 @@ res.json({
   }
 });
 
+// PUT đổi mật khẩu
+router.put("/change-password/:id", async (req, res) => {
+  const userId = req.params.id;
+  const { old_password, new_password } = req.body;
+
+  if (!old_password || !new_password) {
+    return res.status(400).json({ error: "Vui lòng nhập đầy đủ thông tin" });
+  }
+
+  try {
+    // 1️⃣ Lấy password hiện tại của user
+    const [rows] = await db.query(
+      `SELECT password_hash FROM users WHERE id = ? LIMIT 1`,
+      [userId]
+    );
+
+    if (rows.length === 0) return res.status(404).json({ error: "User không tồn tại" });
+
+    const currentHash = rows[0].password_hash;
+
+    // 2️⃣ So sánh password cũ
+    const match = await bcrypt.compare(old_password, currentHash);
+    if (!match) {
+      return res.status(400).json({ error: "Mật khẩu cũ không đúng" });
+    }
+
+    // 3️⃣ Hash mật khẩu mới
+    const saltRounds = 10;
+    const newHash = await bcrypt.hash(new_password, saltRounds);
+
+    // 4️⃣ Lưu vào database
+    await db.query(`UPDATE users SET password_hash = ? WHERE id = ?`, [newHash, userId]);
+
+    res.json({ message: "Đổi mật khẩu thành công" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Lỗi server" });
+  }
+});
 module.exports = router;
