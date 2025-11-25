@@ -171,6 +171,18 @@ async function handleBooking(e) {
 
     const participants = Array.from(document.getElementById('participantsSelect').selectedOptions).map(o => o.value);
 
+    const now = Date.now();
+    const start = new Date(start_time).getTime();
+    const end = new Date(end_time).getTime();
+
+    // Không cho đặt lịch trước thời điểm này 1 phút cho chắc
+    const safeNow = now - 60 * 1000;
+
+    if (start <= safeNow) {
+        result.innerHTML = `<div class="alert alert-warning">Không thể đặt lịch trong quá khứ</div>`;
+        return;
+    }
+
     if (!room_id) {
         result.innerHTML = `<div class="alert alert-warning">Vui lòng chọn phòng</div>`;
         return;
