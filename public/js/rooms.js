@@ -8,9 +8,15 @@ async function renderRooms() {
   const container = document.getElementById('roomsGrid');
   container.innerHTML = '';
 
+  const userBranch = localStorage.getItem('branch_id'); // chi nhánh người dùng
+
   rooms.forEach(r => {
     const col = document.createElement('div');
     col.className = 'col-md-4';
+    
+    // Kiểm tra chi nhánh
+    const disabled = String(r.branch_id) !== String(userBranch);
+
     col.innerHTML = `
       <div class="card shadow-sm">
         
@@ -28,7 +34,11 @@ async function renderRooms() {
           <p><strong>Sức chứa:</strong> ${r.capacity} người</p>
           ${r.location_name ? `<p><strong>Vị trí:</strong> ${r.location_name}</p>` : ''}
 
-          <a href="booking.html" class="btn btn-sm btn-primary">Đặt phòng</a>
+                    <a href="booking.html?room_id=${r.id}&room_name=${encodeURIComponent(`${r.name} - ${r.location_name} - ${r.capacity} người`)}"
+             class="btn btn-sm btn-primary ${disabled ? 'disabled' : ''}" 
+             ${disabled ? 'tabindex="-1" aria-disabled="true"' : ''}>
+             Đặt phòng
+          </a>
           <button class="btn btn-sm btn-outline-secondary" onclick="showTimeline('${r.id}', '${r.name}')">Xem lịch</button>
         </div>
       </div>

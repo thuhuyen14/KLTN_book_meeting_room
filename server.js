@@ -51,6 +51,7 @@ app.get('/api/rooms', async (req, res) => {
         r.image,
         rt.description AS room_description,
         rt.default_capacity AS capacity,
+        b.id AS branch_id,
         CONCAT('Tầng ', l.floor, ' - ', b.name) AS location_name
       FROM rooms r
       LEFT JOIN room_types rt ON r.room_type_id = rt.id

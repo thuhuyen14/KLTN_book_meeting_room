@@ -5,12 +5,14 @@ async function api(path, opts = {}) {
 }
 
 // ===== Load Teams =====
+let allTeams = [];
 async function loadTeams() {
     const teamSelect = document.getElementById('teamSelect');
     teamSelect.innerHTML = '';
 
     try {
         const teams = await api('/teams');
+        allTeams = teams; // lưu ra biến toàn cục để loadUsers dùng
         teams.forEach(t => {
             const opt = document.createElement('option');
             opt.value = t.id;
@@ -46,16 +48,21 @@ async function loadUsers() {
 
         // Organizer
         if (role === 'User') {
+            const userId = localStorage.getItem('id'); // khai báo userId ở đây
             const opt = document.createElement('option');
-            opt.value = localStorage.getItem('id');
-            opt.textContent = fullName;
+            const user = allUsers.find(u => String(u.id) === String(userId));
+
+            const teamName = user?.team || 'N/A';
+            const department = user?.department || 'N/A';
+            opt.value = userId;
+            opt.textContent = `${user?.full_name || 'N/A'} (${teamName}) - ${department}`;
             userSelect.appendChild(opt);
             userSelect.disabled = true;
         } else {
             allUsers.forEach(u => {
                 const opt = document.createElement('option');
                 opt.value = u.id;
-                opt.textContent = `${u.full_name} - ${u.department}`;
+                opt.textContent = `${u.full_name} (${u.team}) - ${u.department}`;
                 userSelect.appendChild(opt);
             });
             userSelect.disabled = false;
@@ -84,7 +91,7 @@ async function loadUsers() {
 }
 
 // ===== Load Available Rooms =====
-async function loadAvailableRooms() {
+async function loadAvailableRooms(selectedRoomId = null) {
     const startInput = document.getElementById('start').value;
     const endInput = document.getElementById('end').value;
     const roomSelect = document.getElementById('roomSelect');
@@ -106,55 +113,27 @@ async function loadAvailableRooms() {
             roomSelect.innerHTML = '<option value="">Không còn phòng trống tại chi nhánh của bạn</option>';
             return;
         }
+
         filteredRooms.forEach(r => {
             const opt = document.createElement('option');
             opt.value = r.id;
             opt.textContent = `${r.name} - ${r.location_name} - ${r.capacity} người`;
+            if (selectedRoomId && String(r.id) === String(selectedRoomId)) {
+                opt.selected = true;
+            }
             roomSelect.appendChild(opt);
         });
+
+        if (selectedRoomId && !filteredRooms.some(r => String(r.id) === String(selectedRoomId))) {
+            const result = document.getElementById('result');
+            result.innerHTML = `<div class="alert alert-warning">Phòng đã chọn không trống vào thời gian này</div>`;
+        }
 
     } catch (err) {
         console.error(err);
         roomSelect.innerHTML = '<option value="">Không tải được danh sách phòng trống</option>';
     }
 }
-
-// ===== Filter Participants theo Team =====
-// Lọc / thêm người tham dự khi chọn team (vẫn giữ tất cả người khác để chọn lẻ)
-document.getElementById('teamSelect').addEventListener('change', (e) => {
-    const selectedTeamIds = Array.from(e.target.selectedOptions).map(opt => opt.value);
-    const participantsSelect = document.getElementById('participantsSelect').tomselect;
-    const userBranch = localStorage.getItem('branch_id');
-
-    // Bắt đầu với tất cả người cùng chi nhánh
-    let filtered = allUsers.filter(u => String(u.branch_id) === String(userBranch));
-
-    // Thêm các thành viên của team đã chọn vào đầu danh sách (nếu chưa có)
-    selectedTeamIds.forEach(teamId => {
-        allUsers.forEach(u => {
-            if (String(u.team_id) === teamId && !filtered.some(f => f.id === u.id)) {
-                filtered.push(u);
-            }
-        });
-    });
-
-    // Clear và load lại participantsSelect
-    participantsSelect.clearOptions();
-    filtered.forEach(u => {
-        participantsSelect.addOption({ value: u.id, text: `${u.full_name} - ${u.department}` });
-    });
-    participantsSelect.refreshOptions(false);
-
-    // Tự động select những người thuộc team đã chọn
-    selectedTeamIds.forEach(teamId => {
-        allUsers.forEach(u => {
-            if (String(u.team_id) === teamId && String(u.branch_id) === String(userBranch)) {
-                participantsSelect.addItem(u.id);
-            }
-        });
-    });
-});
-
 
 // ===== Handle Booking Submit =====
 async function handleBooking(e) {
@@ -168,34 +147,30 @@ async function handleBooking(e) {
     const start_time = document.getElementById('start').value;
     const end_time = document.getElementById('end').value;
     const team_ids = Array.from(document.getElementById('teamSelect').selectedOptions).map(o => o.value);
-
     const participants = Array.from(document.getElementById('participantsSelect').selectedOptions).map(o => o.value);
 
     const now = Date.now();
     const start = new Date(start_time).getTime();
     const end = new Date(end_time).getTime();
-
-    // Không cho đặt lịch trước thời điểm này 1 phút cho chắc
     const safeNow = now - 60 * 1000;
 
     if (start <= safeNow) {
         result.innerHTML = `<div class="alert alert-warning">Không thể đặt lịch trong quá khứ</div>`;
         return;
     }
-
     if (!room_id) {
         result.innerHTML = `<div class="alert alert-warning">Vui lòng chọn phòng</div>`;
         return;
     }
-    if (new Date(start_time) >= new Date(end_time)) {
+    if (start >= end) {
         result.innerHTML = `<div class="alert alert-warning">Thời gian kết thúc phải sau thời gian bắt đầu</div>`;
         return;
     }
 
     try {
         const payload = { room_id, title, user_id: organizer, start_time, end_time };
-        if (team_ids.length > 0) payload.team_ids = team_ids;
-        if (participants.length > 0) payload.participants = participants;
+        if (team_ids.length) payload.team_ids = team_ids;
+        if (participants.length) payload.participants = participants;
 
         const res = await api('/book', {
             method: 'POST',
@@ -263,11 +238,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     calendar.render();
+
     loadUsers();
     loadTeams();
+
+    const params = new URLSearchParams(window.location.search);
+    const roomIdFromURL = params.get('room_id');
+    const roomNameFromURL = params.get('room_name');
+
+    if (roomIdFromURL && roomNameFromURL) {
+        const roomSelect = document.getElementById('roomSelect');
+        roomSelect.innerHTML = `<option value="${roomIdFromURL}" selected>${decodeURIComponent(roomNameFromURL)}</option>`;
+    }
+
 });
 
-// ===== Event Listeners =====
 document.getElementById('bookForm').addEventListener('submit', handleBooking);
 
 document.getElementById('start').addEventListener('change', () => {
@@ -288,5 +273,7 @@ document.getElementById('start').addEventListener('change', () => {
     endInput.value = isoLocal;
     endInput.focus();
 
-    setTimeout(() => loadAvailableRooms(), 100);
+    const roomSelect = document.getElementById('roomSelect');
+    const selectedRoomId = roomSelect.value || null;
+    loadAvailableRooms(selectedRoomId);
 });
