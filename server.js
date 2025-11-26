@@ -1257,10 +1257,12 @@ app.put('/api/bookings/:id', async (req, res) => {
 
 // Route check phòng trống (MySQL)
 app.get('/api/available', async (req, res) => {
-    const { start, end } = req.query;
-    if (!start || !end) {
-        return res.status(400).json({ error: 'Thiếu tham số thời gian' });
+    const { start, end, branch_id } = req.query;
+
+    if (!start || !end || !branch_id) {
+        return res.status(400).json({ error: 'Thiếu tham số start/end/branch_id' });
     }
+
     try {
         const [rooms] = await db.query(`
           SELECT 
@@ -1269,17 +1271,24 @@ app.get('/api/available', async (req, res) => {
             r.image,
             rt.description AS room_description,
             rt.default_capacity AS capacity,
-            CONCAT('Tầng ', l.floor, ' - ', b.name) AS location_name,
-            b.id AS branch_id
+            CONCAT('Tầng ', l.floor, ' - ', br.name) AS location_name,
+            br.id AS branch_id
           FROM rooms r
           LEFT JOIN room_types rt ON r.room_type_id = rt.id
           LEFT JOIN locations l ON r.location_id = l.id
-          LEFT JOIN branches b ON l.branch_id = b.id
-          ORDER BY r.id;
-          `);
-        const [booked] = await db.query('SELECT room_id FROM bookings WHERE NOT (end_time <= ? OR start_time >= ?)', [start, end]);
+          LEFT JOIN branches br ON l.branch_id = br.id
+          WHERE br.id = ?
+          ORDER BY r.id
+      `, [branch_id]);
+
+        const [booked] = await db.query(
+            'SELECT room_id FROM bookings WHERE NOT (end_time <= ? OR start_time >= ?)',
+            [start, end]
+        );
+
         const bookedIds = booked.map(b => b.room_id);
         const available = rooms.filter(r => !bookedIds.includes(r.id));
+
         res.json(available);
 
     } catch (err) {
@@ -1287,6 +1296,7 @@ app.get('/api/available', async (req, res) => {
         res.status(500).json({ error: 'Lỗi server' });
     }
 });
+
 app.get('/api/bookings/personal/:userId', async (req, res) => {
   // console.log("📥 personal bookings called:", req.params, req.query);
   const userId = req.params.userId;

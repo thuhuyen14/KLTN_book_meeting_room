@@ -12,7 +12,7 @@ async function loadTeams() {
 
     try {
         const teams = await api('/teams');
-        allTeams = teams; // lưu ra biến toàn cục để loadUsers dùng
+        allTeams = teams;
         teams.forEach(t => {
             const opt = document.createElement('option');
             opt.value = t.id;
@@ -20,7 +20,6 @@ async function loadTeams() {
             teamSelect.appendChild(opt);
         });
 
-        // TomSelect multi-team
         new TomSelect('#teamSelect', {
             plugins: ['remove_button'],
             maxItems: null,
@@ -36,7 +35,6 @@ async function loadTeams() {
 let allUsers = [];
 async function loadUsers() {
     const role = localStorage.getItem('role');
-    const fullName = localStorage.getItem('full_name');
     const userSelect = document.getElementById('userSelect');
     const participantsSelect = document.getElementById('participantsSelect');
 
@@ -46,9 +44,8 @@ async function loadUsers() {
     try {
         allUsers = await api('/users');
 
-        // Organizer
         if (role === 'User') {
-            const userId = localStorage.getItem('id'); // khai báo userId ở đây
+            const userId = localStorage.getItem('id');
             const opt = document.createElement('option');
             const user = allUsers.find(u => String(u.id) === String(userId));
 
@@ -68,7 +65,6 @@ async function loadUsers() {
             userSelect.disabled = false;
         }
 
-        // Participants
         allUsers.forEach(u => {
             const opt = document.createElement('option');
             opt.value = u.id;
@@ -76,7 +72,6 @@ async function loadUsers() {
             participantsSelect.appendChild(opt);
         });
 
-        // TomSelect participants
         new TomSelect('#participantsSelect', {
             plugins: ['remove_button'],
             maxItems: null,
@@ -95,36 +90,40 @@ async function loadAvailableRooms(selectedRoomId = null) {
     const startInput = document.getElementById('start').value;
     const endInput = document.getElementById('end').value;
     const roomSelect = document.getElementById('roomSelect');
-    const userBranch = localStorage.getItem('branch_id');
 
     if (!startInput || !endInput) {
         roomSelect.innerHTML = '<option value="">Chọn thời gian trước để xem phòng trống</option>';
         return;
     }
 
+    const organizerId = document.getElementById('userSelect')?.value || localStorage.getItem('id');
+    let organizerBranch = localStorage.getItem('branch_id');
+
+    if (organizerId && allUsers.length > 0) {
+        const organizer = allUsers.find(u => String(u.id) === String(organizerId));
+        if (organizer) organizerBranch = organizer.branch_id;
+    }
+
     try {
-        const res = await fetch(`/api/available?start=${encodeURIComponent(startInput)}&end=${encodeURIComponent(endInput)}`);
+        const res = await fetch(`/api/available?start=${startInput}&end=${endInput}&branch_id=${organizerBranch}`);
         if (!res.ok) throw new Error('Lỗi tải phòng trống');
         const rooms = await res.json();
 
-        const filteredRooms = rooms.filter(r => String(r.branch_id) === String(userBranch));
         roomSelect.innerHTML = '';
-        if (filteredRooms.length === 0) {
-            roomSelect.innerHTML = '<option value="">Không còn phòng trống tại chi nhánh của bạn</option>';
+        if (rooms.length === 0) {
+            roomSelect.innerHTML = '<option value="">Không còn phòng trống tại chi nhánh này</option>';
             return;
         }
 
-        filteredRooms.forEach(r => {
+        rooms.forEach(r => {
             const opt = document.createElement('option');
             opt.value = r.id;
             opt.textContent = `${r.name} - ${r.location_name} - ${r.capacity} người`;
-            if (selectedRoomId && String(r.id) === String(selectedRoomId)) {
-                opt.selected = true;
-            }
+            if (selectedRoomId && String(r.id) === String(selectedRoomId)) opt.selected = true;
             roomSelect.appendChild(opt);
         });
 
-        if (selectedRoomId && !filteredRooms.some(r => String(r.id) === String(selectedRoomId))) {
+        if (selectedRoomId && !rooms.some(r => String(r.id) === String(selectedRoomId))) {
             const result = document.getElementById('result');
             result.innerHTML = `<div class="alert alert-warning">Phòng đã chọn không trống vào thời gian này</div>`;
         }
@@ -143,7 +142,7 @@ async function handleBooking(e) {
     const result = document.getElementById('result');
     const role = localStorage.getItem('role');
 
-    let organizer = role === 'User' ? localStorage.getItem('id') : document.getElementById('userSelect').value;
+    const organizer = role === 'User' ? localStorage.getItem('id') : document.getElementById('userSelect').value;
     const start_time = document.getElementById('start').value;
     const end_time = document.getElementById('end').value;
     const team_ids = Array.from(document.getElementById('teamSelect').selectedOptions).map(o => o.value);
@@ -250,20 +249,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         const roomSelect = document.getElementById('roomSelect');
         roomSelect.innerHTML = `<option value="${roomIdFromURL}" selected>${decodeURIComponent(roomNameFromURL)}</option>`;
     }
-
 });
 
+// ===== Event Listeners =====
 document.getElementById('bookForm').addEventListener('submit', handleBooking);
 
 document.getElementById('start').addEventListener('change', () => {
     const startInput = document.getElementById('start');
     const endInput = document.getElementById('end');
-
     if (!startInput.value) return;
 
     const startTime = new Date(startInput.value);
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000);
-
     const isoLocal = endTime.getFullYear() + '-' +
         String(endTime.getMonth() + 1).padStart(2, '0') + '-' +
         String(endTime.getDate()).padStart(2, '0') + 'T' +
@@ -273,6 +270,13 @@ document.getElementById('start').addEventListener('change', () => {
     endInput.value = isoLocal;
     endInput.focus();
 
+    const roomSelect = document.getElementById('roomSelect');
+    const selectedRoomId = roomSelect.value || null;
+    loadAvailableRooms(selectedRoomId);
+});
+
+// **Load lại phòng khi admin đổi organizer**
+document.getElementById('userSelect').addEventListener('change', () => {
     const roomSelect = document.getElementById('roomSelect');
     const selectedRoomId = roomSelect.value || null;
     loadAvailableRooms(selectedRoomId);
