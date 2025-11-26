@@ -554,17 +554,16 @@ $(document).on('click', '.preview-btn', function () {
     window.open(absoluteUrl, '_blank');
   }
 });
-
 async function showGeneratedContent(docId) {
   try {
     const res = await fetch(`/api/documents/${docId}`);
-    
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-    
-    const doc = await res.json();
-    
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+
+    // Xử lý nếu API trả về object { document, signers }
+    const doc = data.document || data; 
+
     if (doc.generated_body) {
       $('#docPreviewFrame').hide().attr('src', '');
       $('#docGeneratedContent').html(doc.generated_body).show();
