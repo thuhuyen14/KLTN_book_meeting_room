@@ -1,122 +1,234 @@
 <!doctype html>
 <html lang="vi">
+
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Báo cáo thống kê - DNSE</title>
+  <title>Báo cáo - DNSE</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <link rel="stylesheet" href="css/style.css">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
   <div id="navbar-placeholder"></div>
 
   <main class="container my-4">
-    <h2 class="mb-4">Báo cáo thống kê</h2>
+    <h2 class="mb-4">Báo cáo</h2>
 
     <!-- Tabs -->
     <ul class="nav nav-tabs" id="reportTabs" role="tablist">
       <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
-          Tổng quan
-        </button>
+        <button class="nav-link active" id="roomReport-tab" data-bs-toggle="tab" data-bs-target="#roomReport" type="button" role="tab">Sử dụng phòng họp</button>
       </li>
-
       <li class="nav-item" role="presentation">
-        <button class="nav-link" id="meeting-tab" data-bs-toggle="tab" data-bs-target="#meeting" type="button" role="tab">
-          Đặt phòng họp
-        </button>
+        <button class="nav-link" id="roomLog-tab" data-bs-toggle="tab" data-bs-target="#roomLog" type="button" role="tab">Nhật ký đặt phòng</button>
       </li>
-
       <li class="nav-item" role="presentation">
-        <button class="nav-link" id="approve-tab" data-bs-toggle="tab" data-bs-target="#approve" type="button" role="tab">
-          Trình ký
-        </button>
+        <button class="nav-link" id="signReport-tab" data-bs-toggle="tab" data-bs-target="#signReport" type="button" role="tab">Báo cáo trình ký</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="userReport-tab" data-bs-toggle="tab" data-bs-target="#userReport" type="button" role="tab">Người dùng hoạt động</button>
       </li>
     </ul>
 
-    <!-- Tab content -->
+    <!-- Tab contents -->
     <div class="tab-content mt-4">
 
-      <!-- TAB: Tổng quan -->
-      <div class="tab-pane fade show active" id="overview" role="tabpanel">
-        <div class="row">
-          <div class="col-md-4">
-            <div class="card p-3 shadow-sm">
-              <h5>Tổng số cuộc họp</h5>
-              <p id="kpiMeetings" class="fs-3 fw-bold">0</p>
-            </div>
+      <!-- TAB 1: Báo cáo sử dụng phòng họp -->
+      <div class="tab-pane fade show active" id="roomReport" role="tabpanel">
+        <div class="border p-3 rounded bg-light mb-3">
+          <h4 class="mb-1">BÁO CÁO SỬ DỤNG PHÒNG HỌP</h4>
+          <small class="text-muted">Giờ in: <span id="printTime1"></span> — Người lập: <span id="creator1">Admin</span></small>
+        </div>
+
+        <!-- filters -->
+        <div class="row g-3 mb-3">
+          <div class="col-md-3">
+            <label class="form-label">Từ ngày</label>
+            <input type="date" id="room_from" class="form-control">
           </div>
-          <div class="col-md-4">
-            <div class="card p-3 shadow-sm">
-              <h5>Tổng số hồ sơ trình ký</h5>
-              <p id="kpiDocs" class="fs-3 fw-bold">0</p>
-            </div>
+          <div class="col-md-3">
+            <label class="form-label">Đến ngày</label>
+            <input type="date" id="room_to" class="form-control">
           </div>
-          <div class="col-md-4">
-            <div class="card p-3 shadow-sm">
-              <h5>Người dùng hoạt động</h5>
-              <p id="kpiUsers" class="fs-3 fw-bold">0</p>
-            </div>
+          <div class="col-md-3">
+            <label class="form-label">Phòng họp</label>
+            <select id="room_filter" class="form-select">
+              <option value="">Tất cả</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Người đặt</label>
+            <select id="room_user_filter" class="form-select">
+              <option value="">Tất cả</option>
+            </select>
           </div>
         </div>
 
-        <div class="row mt-4">
-          <div class="col-md-12">
-            <canvas id="systemActivityChart"></canvas>
+        <div class="d-flex justify-content-end gap-2 mb-2">
+          <button id="btnRoomSearch" class="btn btn-primary">Tìm kiếm</button>
+          <button id="btnRoomPDF" class="btn btn-danger"><i class="bi bi-file-earmark-pdf"></i> Xuất PDF</button>
+          <button id="btnRoomExcel" class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Tải Excel</button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-striped table-bordered">
+            <thead class="table-dark">
+              <tr>
+                <th>Ngày</th>
+                <th>Phòng</th>
+                <th>Thời gian</th>
+                <th>Người đặt</th>
+                <th>Mục đích</th>
+              </tr>
+            </thead>
+            <tbody id="roomReportTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TAB 2: Nhật ký đặt phòng -->
+      <div class="tab-pane fade" id="roomLog" role="tabpanel">
+        <div class="border p-3 rounded bg-light mb-3">
+          <h4 class="mb-1">NHẬT KÝ ĐẶT PHÒNG HỌP</h4>
+          <small class="text-muted">Giờ in: <span id="printTime2"></span> — Người lập: <span id="creator2">Admin</span></small>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-3">
+            <label class="form-label">Từ ngày</label>
+            <input type="date" id="log_from" class="form-control">
           </div>
+          <div class="col-md-3">
+            <label class="form-label">Đến ngày</label>
+            <input type="date" id="log_to" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Loại thao tác</label>
+            <select id="log_action" class="form-select">
+              <option value="">Tất cả</option>
+              <option value="create">Tạo mới</option>
+              <option value="update">Chỉnh sửa</option>
+              <option value="cancel">Hủy</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mb-2">
+          <button id="btnLogSearch" class="btn btn-primary">Tìm kiếm</button>
+          <button id="btnLogPDF" class="btn btn-danger"><i class="bi bi-file-earmark-pdf"></i> Xuất PDF</button>
+          <button id="btnLogExcel" class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Tải Excel</button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-striped table-bordered">
+            <thead class="table-dark">
+              <tr>
+                <th>Thời gian</th>
+                <th>Phòng</th>
+                <th>Hành động</th>
+                <th>Người thực hiện</th>
+                <th>Chi tiết</th>
+              </tr>
+            </thead>
+            <tbody id="roomLogTable"></tbody>
+          </table>
         </div>
       </div>
 
-      <!-- TAB: Đặt phòng họp -->
-      <div class="tab-pane fade" id="meeting" role="tabpanel">
-        <h4 class="mb-3">Thống kê đặt phòng họp</h4>
+      <!-- TAB 3: Báo cáo trình ký -->
+      <div class="tab-pane fade" id="signReport" role="tabpanel">
+        <div class="border p-3 rounded bg-light mb-3">
+          <h4 class="mb-1">BÁO CÁO TRÌNH KÝ</h4>
+          <small class="text-muted">Giờ in: <span id="printTime3"></span> — Người lập: <span id="creator3">Admin</span></small>
+        </div>
 
-        <div class="row g-4"> <!-- g-4 tạo khoảng cách giữa các chart -->
-          <div class="col-md-6">
-            <canvas id="roomChart"></canvas>
+        <div class="row g-3 mb-3">
+          <div class="col-md-3">
+            <label class="form-label">Từ ngày</label>
+            <input type="date" id="sign_from" class="form-control">
           </div>
-          <div class="col-md-6">
-            <canvas id="dayChart"></canvas>
+          <div class="col-md-3">
+            <label class="form-label">Đến ngày</label>
+            <input type="date" id="sign_to" class="form-control">
           </div>
-          <div class="col-md-6">
-            <canvas id="hourChart"></canvas>
+          <div class="col-md-3">
+            <label class="form-label">Trạng thái</label>
+            <select id="sign_status" class="form-select">
+              <option value="">Tất cả</option>
+              <option value="pending">Chờ ký</option>
+              <option value="signed">Đã ký</option>
+              <option value="rejected">Từ chối</option>
+            </select>
           </div>
-          <div class="col-md-6">
-            <canvas id="userChart"></canvas>
-          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mb-2">
+          <button id="btnSignSearch" class="btn btn-primary">Tìm kiếm</button>
+          <button id="btnSignPDF" class="btn btn-danger"><i class="bi bi-file-earmark-pdf"></i> Xuất PDF</button>
+          <button id="btnSignExcel" class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Tải Excel</button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-striped table-bordered">
+            <thead class="table-dark">
+              <tr>
+                <th>Mã hồ sơ</th>
+                <th>Người gửi</th>
+                <th>Người ký</th>
+                <th>Thời gian</th>
+                <th>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody id="signReportTable"></tbody>
+          </table>
         </div>
       </div>
 
+      <!-- TAB 4: Báo cáo người dùng -->
+      <div class="tab-pane fade" id="userReport" role="tabpanel">
+        <div class="border p-3 rounded bg-light mb-3">
+          <h4 class="mb-1">BÁO CÁO NGƯỜI DÙNG HOẠT ĐỘNG</h4>
+          <small class="text-muted">Giờ in: <span id="printTime4"></span> — Người lập: <span id="creator4">Admin</span></small>
+        </div>
 
-      <!-- TAB: Trình ký -->
-      <div class="tab-pane fade" id="approve" role="tabpanel">
-        <h4 class="mb-3">Thống kê trình ký</h4>
-
-        <div class="row">
-          <div class="col-md-6">
-            <canvas id="signStatusChart" style="max-height:250px"></canvas>
-          </div>
-          <div class="col-md-6">
-            <canvas id="signerChart"></canvas>
+        <div class="row g-3 mb-3">
+          <div class="col-md-3">
+            <label class="form-label">Phòng ban</label>
+            <select id="filter_dept" class="form-select">
+              <option value="">Tất cả</option>
+            </select>
           </div>
         </div>
 
-        <div class="row mt-4">
-          <div class="col-md-12">
-            <canvas id="signDayChart"></canvas>
-          </div>
+        <div class="d-flex justify-content-end gap-2 mb-2">
+          <button id="btnUserSearch" class="btn btn-primary">Tìm kiếm</button>
+          <button id="btnUserPDF" class="btn btn-danger"><i class="bi bi-file-earmark-pdf"></i> Xuất PDF</button>
+          <button id="btnUserExcel" class="btn btn-success"><i class="bi bi-file-earmark-excel"></i> Tải Excel</button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-striped table-bordered">
+            <thead class="table-dark">
+              <tr>
+                <th>Người dùng</th>
+                <th>Phòng ban</th>
+                <th>Số lần đăng nhập</th>
+                <th>Số lần đặt phòng</th>
+                <th>Số hồ sơ trình ký</th>
+              </tr>
+            </thead>
+            <tbody id="userReportTable"></tbody>
+          </table>
         </div>
       </div>
+
     </div>
   </main>
 
-  <footer class="bg-dark text-white text-center py-3 mt-5 d-flex justify-content-center align-items-center gap-2">
-    <img src="images/dnse_logo_notext.png" alt="DNSE Logo" style="height:25px;">
+  <footer class="bg-dark text-white text-center py-3 mt-5">
     <span>&copy; 2025 DNSE</span>
   </footer>
 
@@ -124,15 +236,15 @@
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="js/navbar.js"></script>
   <script>
-    $(document).ready(function() {
-      $("#navbar-placeholder").load("navbar.html", function () {
-        if (typeof initNavbar === "function") initNavbar();
-      });
-    });
+    $(document).ready(() =>
+      $("#navbar-placeholder").load("navbar.html", () => initNavbar && initNavbar())
+    );
   </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <script src="js/report.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="js/main.js"></script>
+  <script src="js/report.js"></script>
 </body>
 </html>

@@ -1713,7 +1713,7 @@ app.post('/api/upload_image', uploadRoomImage.single('image'), (req, res) => {
 });
 
 // Phòng nào được book nhiều nhất (MySQL)
-app.get('/api/report/rooms', async (req, res) => {
+app.get('/api/analytic/rooms', async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT r.name, COUNT(b.id) as count
@@ -1729,7 +1729,7 @@ app.get('/api/report/rooms', async (req, res) => {
 });
 
 // Ngày nào được book nhiều nhất (MySQL)
-app.get('/api/report/days', async (req, res) => {
+app.get('/api/analytic/days', async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT DATE(start_time) as day, COUNT(id) as count
@@ -1744,7 +1744,7 @@ app.get('/api/report/days', async (req, res) => {
 });
 
 // Người/phòng ban nào đặt nhiều (MySQL)
-app.get('/api/report/users', async (req, res) => {
+app.get('/api/analytic/users', async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT up.full_name, d.name, COUNT(b.id) as count
@@ -1761,7 +1761,7 @@ app.get('/api/report/users', async (req, res) => {
   }
 });
 
-app.get("/api/report/docs/status", async (req, res) => {
+app.get("/api/analytic/docs/status", async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT status, COUNT(*) AS count
@@ -1773,7 +1773,7 @@ app.get("/api/report/docs/status", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-app.get("/api/report/docs/signers", async (req, res) => {
+app.get("/api/analytic/docs/signers", async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT up.full_name, COUNT(ds.document_id) AS count
@@ -1789,7 +1789,7 @@ app.get("/api/report/docs/signers", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-app.get("/api/report/docs/days", async (req, res) => {
+app.get("/api/analytic/docs/days", async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT DATE(created_at) AS day, COUNT(*) AS count
@@ -1803,7 +1803,7 @@ app.get("/api/report/docs/days", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-app.get("/api/report/overview", async (req, res) => {
+app.get("/api/analytic/overview", async (req, res) => {
   try {
     // Tổng số cuộc họp
     const [meetings] = await db.query(`SELECT COUNT(*) AS total FROM bookings`);
@@ -1842,7 +1842,7 @@ app.get("/api/report/overview", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-app.get('/api/report/rooms/hours', async (req, res) => {
+app.get('/api/analytic/rooms/hours', async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT HOUR(start_time) AS hour, COUNT(id) AS count
@@ -1855,6 +1855,136 @@ app.get('/api/report/rooms/hours', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// 1️⃣ Báo cáo sử dụng phòng họp
+app.get('/api/report/rooms', async (req, res) => {
+  try {
+    const { from, to, room_id, user_id } = req.query;
+
+    let sql = `
+      SELECT
+        DATE(b.start_time) AS day,
+        r.name AS room_name,
+        CONCAT(DATE_FORMAT(b.start_time, '%H:%i'), ' - ', DATE_FORMAT(b.end_time, '%H:%i')) AS time_range,
+        up.full_name AS user_name,
+        b.title AS purpose
+      FROM bookings b
+      JOIN rooms r ON b.room_id = r.id
+      LEFT JOIN users u ON b.user_id = u.id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      WHERE 1=1
+    `;
+
+    const params = [];
+    if (from) { sql += " AND DATE(b.start_time) >= ?"; params.push(from); }
+    if (to) { sql += " AND DATE(b.start_time) <= ?"; params.push(to); }
+    if (room_id) { sql += " AND b.room_id = ?"; params.push(room_id); }
+    if (user_id) { sql += " AND b.user_id = ?"; params.push(user_id); }
+
+    sql += " ORDER BY b.start_time ASC";
+
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 2️⃣ Báo cáo thay đổi phòng/hệ thống (trước là room-log)
+app.get('/api/report/room-log', async (req, res) => {
+  try {
+    const { from, to, action } = req.query;
+
+    let sql = `
+      SELECT
+        l.updated_at AS created_at,
+        r.name AS room_name,
+        l.action,
+        l.updated_by AS actor,
+        JSON_UNQUOTE(JSON_EXTRACT(l.new_data, '$.title')) AS detail
+      FROM booking_change_log l
+      LEFT JOIN rooms r ON l.entity_type='room' AND l.entity_id = r.id
+      WHERE 1=1
+    `;
+
+    const params = [];
+    if (from) { sql += " AND DATE(l.updated_at) >= ?"; params.push(from); }
+    if (to) { sql += " AND DATE(l.updated_at) <= ?"; params.push(to); }
+    if (action) { sql += " AND l.action = ?"; params.push(action); }
+
+    sql += " ORDER BY l.updated_at DESC";
+
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 3️⃣ Báo cáo trình ký
+app.get('/api/report/sign', async (req, res) => {
+  try {
+    const { from, to, status } = req.query;
+
+    let sql = `
+      SELECT
+        d.id AS document_id,
+        up_sender.full_name AS sender,
+        up_signer.full_name AS signer,
+        d.created_at,
+        d.status
+      FROM documents d
+      LEFT JOIN users u_sender ON d.created_by = u_sender.id
+      LEFT JOIN user_profiles up_sender ON up_sender.user_id = u_sender.id
+      LEFT JOIN document_signers ds ON ds.document_id = d.id
+      LEFT JOIN users u_signer ON ds.signer_id = u_signer.id
+      LEFT JOIN user_profiles up_signer ON up_signer.user_id = u_signer.id
+      WHERE 1=1
+    `;
+
+    const params = [];
+    if (from) { sql += " AND DATE(d.created_at) >= ?"; params.push(from); }
+    if (to) { sql += " AND DATE(d.created_at) <= ?"; params.push(to); }
+    if (status) { sql += " AND d.status = ?"; params.push(status); }
+
+    sql += " ORDER BY d.created_at DESC";
+
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 4️⃣ Báo cáo người dùng
+app.get('/api/report/users', async (req, res) => {
+  try {
+    const { dept } = req.query;
+
+    let sql = `
+      SELECT
+        up.full_name,
+        d.name AS department,
+        0 AS login_count, -- không có bảng logins
+        (SELECT COUNT(*) FROM bookings b WHERE b.user_id = u.id) AS booking_count,
+        (SELECT COUNT(*) FROM documents doc WHERE doc.created_by = u.id) AS document_count
+      FROM users u
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      LEFT JOIN departments d ON u.department_id = d.id
+      WHERE 1=1
+    `;
+
+    const params = [];
+    if (dept) { sql += " AND u.department_id = ?"; params.push(dept); }
+
+    sql += " ORDER BY booking_count DESC";
+
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 
 // Serve index.html for any other route (SPA fallback)
