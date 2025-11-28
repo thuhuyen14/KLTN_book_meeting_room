@@ -1,8 +1,9 @@
 /* ===========================
-   report.js (full) - Export PDF/Excel for active tab
+   report.js (enhanced) - Export PDF/Excel for active tab
    - Supports Vietnamese (Unicode) via NotoSans
    - Uses jsPDF + autotable and SheetJS (XLSX)
    - Professional header with company info, body with report content, footer with creator & time
+   - Includes filter information in report
    =========================== */
 
 /* ---------------------------
@@ -14,10 +15,45 @@ function formatDateTime(dt) {
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
+function formatDateOnly(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
+
 async function fetchJSON(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
   return res.json();
+}
+
+/* ---------------------------
+   Get creator info from localStorage
+--------------------------- */
+function getCreatorInfo() {
+  try {
+    let userInfo = localStorage.getItem("full_name");
+    if (userInfo) {
+      // Try parsing as JSON first
+      try {
+        const user = JSON.parse(userInfo);
+        return user.full_name || user.name || "Admin";
+      } catch (e) {
+        // If not JSON, check if it's a raw string (like "Phạm Thị Thu Huyền")
+        if (userInfo && typeof userInfo === "string" && userInfo.length > 0) {
+          // If it looks like a name (contains Vietnamese chars or spaces), use it directly
+          if (userInfo.match(/[\p{L}\s]/u)) {
+            return userInfo;
+          }
+        }
+        throw e;
+      }
+    }
+  } catch (e) {
+    console.warn("Không parse được user_info từ localStorage:", e);
+  }
+  return "Admin";
 }
 
 /* ---------------------------
@@ -34,27 +70,97 @@ async function loadFontBase64(path = "fonts/NotoSans-Regular.ttf") {
 }
 
 /* ---------------------------
+   Get filter values from active tab
+--------------------------- */
+function getActiveTabFilters() {
+  const activePane = document.querySelector(".tab-pane.show.active, .tab-pane.active");
+  if (!activePane) return null;
+
+  const paneId = activePane.id;
+  const filters = {};
+
+  // Map tab ID to their filter element IDs
+  if (paneId === "roomReport") {
+    const from = document.getElementById("room_from")?.value;
+    const to = document.getElementById("room_to")?.value;
+    const room = document.getElementById("room_filter")?.selectedOptions[0]?.text || "TẤT CẢ";
+    const user = document.getElementById("room_user_filter")?.selectedOptions[0]?.text || "TẤT CẢ";
+    filters.from = from ? formatDateOnly(from) : "TẤT CẢ";
+    filters.to = to ? formatDateOnly(to) : "TẤT CẢ";
+    filters.room = room;
+    filters.user = user;
+  } else if (paneId === "roomLog") {
+    const from = document.getElementById("log_from")?.value;
+    const to = document.getElementById("log_to")?.value;
+    const action = document.getElementById("log_action")?.value || "TẤT CẢ";
+    filters.from = from ? formatDateOnly(from) : "TẤT CẢ";
+    filters.to = to ? formatDateOnly(to) : "TẤT CẢ";
+    filters.action = action;
+  } else if (paneId === "signReport") {
+    const from = document.getElementById("sign_from")?.value;
+    const to = document.getElementById("sign_to")?.value;
+    const status = document.getElementById("sign_status")?.value || "TẤT CẢ";
+    filters.from = from ? formatDateOnly(from) : "TẤT CẢ";
+    filters.to = to ? formatDateOnly(to) : "TẤT CẢ";
+    filters.status = status;
+  } else if (paneId === "userReport") {
+    const dept = document.getElementById("filter_dept")?.selectedOptions[0]?.text || "TẤT CẢ";
+    filters.dept = dept;
+  }
+
+  return filters;
+}
+
+/* ---------------------------
+   Build filter text for report
+--------------------------- */
+function buildFilterText(filters) {
+  if (!filters) return "";
+  
+  const lines = [];
+  
+  // Determine report type based on filters
+  if (filters.room !== undefined) {
+    // Room report
+    lines.push(`Từ ngày: ${filters.from || "TẤT CẢ"}`);
+    lines.push(`Đến ngày: ${filters.to || "TẤT CẢ"}`);
+    lines.push(`Phòng họp: ${filters.room}`);
+    lines.push(`Người đặt: ${filters.user}`);
+  } else if (filters.action !== undefined) {
+    // Room log
+    lines.push(`Từ ngày: ${filters.from || "TẤT CẢ"}`);
+    lines.push(`Đến ngày: ${filters.to || "TẤT CẢ"}`);
+    lines.push(`Hành động: ${filters.action}`);
+  } else if (filters.status !== undefined) {
+    // Sign report
+    lines.push(`Từ ngày: ${filters.from || "TẤT CẢ"}`);
+    lines.push(`Đến ngày: ${filters.to || "TẤT CẢ"}`);
+    lines.push(`Trạng thái: ${filters.status}`);
+  } else if (filters.dept !== undefined) {
+    // User report
+    lines.push(`Bộ phận: ${filters.dept}`);
+  }
+  
+  return lines;
+}
+
+/* ---------------------------
    PDF export function - Professional format
    - Header: Logo + Company info
-   - Body: Report title + Table
-   - Footer: Creator name + Print time
+   - Report title (centered)
+   - Filter information
+   - Body: Table
+   - Creator & Date signature
+   - Footer: Creator name + Print time + Page number
 --------------------------- */
 async function exportTableToPDF({ tableEl, title = "Báo cáo", creator = "Admin", logoSrc = "images/dnse_logo.png" }) {
   const { jsPDF } = window.jspdf;
   if (!jsPDF) throw new Error("jsPDF chưa được nạp");
 
-  // Lấy tên người dùng từ localStorage nếu không có creator
+  // Get creator name
   let creatorName = creator;
   if (creator === "Admin" || !creator) {
-    const userInfo = localStorage.getItem("user_info");
-    if (userInfo) {
-      try {
-        const user = JSON.parse(userInfo);
-        creatorName = user.full_name || user.name || "Admin";
-      } catch (e) {
-        console.warn("Không parse được user_info từ localStorage");
-      }
-    }
+    creatorName = getCreatorInfo();
   }
 
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -112,17 +218,37 @@ async function exportTableToPDF({ tableEl, title = "Báo cáo", creator = "Admin
 
   doc.setFontSize(9);
   doc.setFont("NotoSans", "normal");
-  doc.text("Địa chỉ: 63-65 Ngô Thì Nhậm, Hai Bà Trưng, Hà Nội", companyX, cursorY + 14);
+  doc.text("Địa chỉ: 63-65 Ngô Thị Nhậm, Hai Bà Trưng, Hà Nội", companyX, cursorY + 14);
 
   cursorY += 40;
 
-  // 4) Draw report title (bold and larger)
+  // 4) Draw report title (centered, bold and larger)
   doc.setFontSize(16);
   doc.setFont("NotoSans", "bold");
-  doc.text(title, marginLeft + 5, cursorY);
-  cursorY += 15;
+  const titleWidth = doc.getStringUnitWidth(title) * doc.internal.getFontSize() / doc.internal.scaleFactor;
+  const titleX = (pageWidth - titleWidth) / 2;
+  doc.text(title, titleX, cursorY);
+  cursorY += 12;
 
-  // 5) Build and draw table
+  // 5) Draw filter information
+  const filters = getActiveTabFilters();
+  const filterLines = buildFilterText(filters);
+  
+  if (filterLines.length > 0) {
+    doc.setFontSize(9);
+    doc.setFont("NotoSans", "normal");
+    doc.setTextColor(60, 60, 60);
+    
+    filterLines.forEach(line => {
+      doc.text(line, marginLeft + 5, cursorY);
+      cursorY += 5;
+    });
+    
+    cursorY += 3;
+    doc.setTextColor(0, 0, 0);
+  }
+
+  // 6) Build and draw table
   const tableElement = typeof tableEl === "string" ? document.getElementById(tableEl) : tableEl;
   if (!tableElement) throw new Error("Table element không tồn tại: " + String(tableEl));
 
@@ -150,17 +276,27 @@ async function exportTableToPDF({ tableEl, title = "Báo cáo", creator = "Admin
     margin: { left: marginLeft, right: marginRight },
     didDrawPage: function(data) {
       // Footer on every page
-      const pageCount = doc.internal.pages.length - 1;
       const footerY = pageHeight - 10;
-
       doc.setFontSize(8);
       doc.setFont("NotoSans", "normal");
-      doc.text(`Người lập báo cáo: ${creatorName}`, marginLeft + 5, footerY);
-      doc.text(`Giờ in: ${formatDateTime(new Date())}`, marginLeft + 5, footerY + 4);
+      doc.text(`Giờ in: ${formatDateTime(new Date())}`, marginLeft + 5, footerY);
       doc.text(`Trang ${data.pageNumber}`, pageWidth - marginRight - 20, footerY);
+    },
+    willDrawPage: function() {
+      // Reserved for future use if needed
     }
   });
 
+  // Add signature section after table (on last page)
+  const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY : 100;
+  const signatureY = finalY + 10;
+  
+  doc.setFontSize(9);
+  doc.setFont("NotoSans", "bold");
+  doc.text("Người lập báo cáo", pageWidth - marginRight - 60, signatureY);
+  
+  doc.setFont("NotoSans", "normal");
+  doc.text(creatorName, pageWidth - marginRight - 60, signatureY + 10);
   doc.save(`${title.replace(/\s+/g, '_')}.pdf`);
 }
 
@@ -355,8 +491,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function exportActiveTabPDF() {
     const info = getActiveReportInfo();
     if (!info || !info.tableId) return alert("Không tìm thấy bảng để xuất.");
-    const creatorId = info.creatorId || "creator1";
-    const creatorName = document.getElementById(creatorId)?.textContent || "Admin";
+    const creatorName = getCreatorInfo();
     await exportTableToPDF({
       tableEl: info.tableId,
       title: info.title,
@@ -385,7 +520,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     exportTableToPDF({
       tableEl: "roomReportTable",
       title: "Báo cáo sử dụng phòng họp",
-      creator: document.getElementById("creator1")?.textContent || "Admin",
+      creator: getCreatorInfo(),
       logoSrc: "images/dnse_logo.png"
     })
   );
@@ -400,7 +535,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     exportTableToPDF({
       tableEl: "roomLogTable",
       title: "Nhật ký đặt phòng",
-      creator: document.getElementById("creator2")?.textContent || "Admin",
+      creator: getCreatorInfo(),
       logoSrc: "images/dnse_logo.png"
     })
   );
@@ -415,7 +550,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     exportTableToPDF({
       tableEl: "signReportTable",
       title: "Báo cáo trình ký",
-      creator: document.getElementById("creator3")?.textContent || "Admin",
+      creator: getCreatorInfo(),
       logoSrc: "images/dnse_logo.png"
     })
   );
@@ -430,7 +565,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     exportTableToPDF({
       tableEl: "userReportTable",
       title: "Báo cáo người dùng hoạt động",
-      creator: document.getElementById("creator4")?.textContent || "Admin",
+      creator: getCreatorInfo(),
       logoSrc: "images/dnse_logo.png"
     })
   );
