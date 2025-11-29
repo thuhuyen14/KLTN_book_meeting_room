@@ -22,14 +22,17 @@
       <li class="nav-item" role="presentation">
         <button class="nav-link active" id="roomReport-tab" data-bs-toggle="tab" data-bs-target="#roomReport" type="button" role="tab">Sử dụng phòng họp</button>
       </li>
-      <li class="nav-item" role="presentation">
+      <!-- <li class="nav-item" role="presentation">
         <button class="nav-link" id="roomLog-tab" data-bs-toggle="tab" data-bs-target="#roomLog" type="button" role="tab">Nhật ký đặt phòng</button>
-      </li>
+      </li> -->
       <li class="nav-item" role="presentation">
         <button class="nav-link" id="signReport-tab" data-bs-toggle="tab" data-bs-target="#signReport" type="button" role="tab">Báo cáo trình ký</button>
       </li>
       <li class="nav-item" role="presentation">
         <button class="nav-link" id="userReport-tab" data-bs-toggle="tab" data-bs-target="#userReport" type="button" role="tab">Người dùng hoạt động</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="stats-tab" data-bs-toggle="tab" data-bs-target="#stats" type="button" role="tab">Thống kê</button>
       </li>
     </ul>
 
@@ -74,7 +77,7 @@
         </div>
 
         <div class="table-responsive">
-          <table class="table table-striped table-bordered">
+          <table id="roomReportTable" class="table table-striped table-bordered">
             <thead class="table-dark">
               <tr>
                 <th>Ngày</th>
@@ -84,12 +87,12 @@
                 <th>Mục đích</th>
               </tr>
             </thead>
-            <tbody id="roomReportTable"></tbody>
+            <tbody></tbody>
           </table>
         </div>
       </div>
 
-      <!-- TAB 2: Nhật ký đặt phòng -->
+      <!-- TAB 2: Nhật ký đặt phòng
       <div class="tab-pane fade" id="roomLog" role="tabpanel">
         <div class="border p-3 rounded bg-light mb-3">
           <h4 class="mb-1">NHẬT KÝ ĐẶT PHÒNG HỌP</h4>
@@ -123,7 +126,7 @@
         </div>
 
         <div class="table-responsive">
-          <table class="table table-striped table-bordered">
+          <table id="roomLogTable" class="table table-striped table-bordered">
             <thead class="table-dark">
               <tr>
                 <th>Thời gian</th>
@@ -133,10 +136,10 @@
                 <th>Chi tiết</th>
               </tr>
             </thead>
-            <tbody id="roomLogTable"></tbody>
+            <tbody></tbody>
           </table>
         </div>
-      </div>
+      </div> -->
 
       <!-- TAB 3: Báo cáo trình ký -->
       <div class="tab-pane fade" id="signReport" role="tabpanel">
@@ -172,7 +175,7 @@
         </div>
 
         <div class="table-responsive">
-          <table class="table table-striped table-bordered">
+          <table id="signReportTable" class="table table-striped table-bordered">
             <thead class="table-dark">
               <tr>
                 <th>Mã hồ sơ</th>
@@ -182,7 +185,7 @@
                 <th>Trạng thái</th>
               </tr>
             </thead>
-            <tbody id="signReportTable"></tbody>
+            <tbody></tbody>
           </table>
         </div>
       </div>
@@ -191,7 +194,7 @@
       <div class="tab-pane fade" id="userReport" role="tabpanel">
         <div class="border p-3 rounded bg-light mb-3">
           <h4 class="mb-1">BÁO CÁO NGƯỜI DÙNG HOẠT ĐỘNG</h4>
-          <small class="text-muted">Giờ in: <span id="printTime4"></span> — Người lập: <span id="creator4">Admin</span></small>
+          <small class="text-muted">Giờ in: <span id="printTime4"></span> — Người lập: <span id="creator4"></span></small>
         </div>
 
         <div class="row g-3 mb-3">
@@ -210,20 +213,145 @@
         </div>
 
         <div class="table-responsive">
-          <table class="table table-striped table-bordered">
+          <table id="userReportTable" class="table table-striped table-bordered">
             <thead class="table-dark">
               <tr>
-                <th>Người dùng</th>
-                <th>Phòng ban</th>
-                <th>Số lần đăng nhập</th>
-                <th>Số lần đặt phòng</th>
-                <th>Số hồ sơ trình ký</th>
+                <th class="sortable" data-key="full_name">Họ tên</th>
+                <th class="sortable" data-key="department">Phòng ban</th>
+                <th class="sortable" data-key="booking_count">Số lần đặt phòng</th>
+                <th class="sortable" data-key="document_count">Số hồ sơ trình ký</th>
               </tr>
             </thead>
-            <tbody id="userReportTable"></tbody>
+            <tbody></tbody>
           </table>
         </div>
       </div>
+      
+      <!-- TAB 5: Thống kê -->
+      <div class="tab-pane fade" id="stats" role="tabpanel">
+        <div class="border p-3 rounded bg-light mb-3">
+          <h4 class="mb-1">THỐNG KÊ</h4>
+          <small class="text-muted">Giờ in: <span id="printTime5"></span> — Người lập: <span id="creator5"></span></small>
+        </div>
+
+        <!-- Filter for stats -->
+        <div class="row g-3 mb-3">
+          <div class="col-md-3">
+            <label class="form-label">Từ ngày</label>
+            <input type="date" id="stats_from" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Đến ngày</label>
+            <input type="date" id="stats_to" class="form-control">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">&nbsp;</label>
+            <button id="btnStatsSearch" class="btn btn-primary w-100">Tìm kiếm</button>
+          </div>
+        </div>
+
+        <!-- Top 5 phòng được đặt nhiều nhất -->
+        <div class="card mb-4">
+          <div class="card-header bg-info text-white">
+            <h5 class="mb-0">Top 5 Phòng được đặt nhiều nhất</h5>
+          </div>
+          <div class="card-body">
+            <div class="d-flex justify-content-end gap-2 mb-2">
+              <button id="btnTopRoomPDF" class="btn btn-danger btn-sm"><i class="bi bi-file-earmark-pdf"></i> Xuất PDF</button>
+              <button id="btnTopRoomExcel" class="btn btn-success btn-sm"><i class="bi bi-file-earmark-excel"></i> Tải Excel</button>
+            </div>
+            <div class="table-responsive">
+              <table id="topRoomTable" class="table table-striped table-bordered">
+                <thead class="table-dark">
+                  <tr>
+                    <th>STT</th>
+                    <th>Tên phòng</th>
+                    <th>Số lần đặt</th>
+                    <th>Tổng giờ sử dụng</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top 5 khung giờ được đặt nhiều nhất -->
+        <div class="card mb-4">
+          <div class="card-header bg-info text-white">
+            <h5 class="mb-0">Top 5 Khung giờ được đặt nhiều nhất</h5>
+          </div>
+          <div class="card-body">
+            <div class="d-flex justify-content-end gap-2 mb-2">
+              <button id="btnTopHourPDF" class="btn btn-danger btn-sm"><i class="bi bi-file-earmark-pdf"></i> Xuất PDF</button>
+              <button id="btnTopHourExcel" class="btn btn-success btn-sm"><i class="bi bi-file-earmark-excel"></i> Tải Excel</button>
+            </div>
+            <div class="table-responsive">
+              <table id="topHourTable" class="table table-striped table-bordered">
+                <thead class="table-dark">
+                  <tr>
+                    <th>STT</th>
+                    <th>Khung giờ</th>
+                    <th>Số lần đặt</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top 5 người ký nhiều nhất -->
+        <div class="card mb-4">
+          <div class="card-header bg-info text-white">
+            <h5 class="mb-0">Top 5 Người ký nhiều nhất</h5>
+          </div>
+          <div class="card-body">
+            <div class="d-flex justify-content-end gap-2 mb-2">
+              <button id="btnTopSignerPDF" class="btn btn-danger btn-sm"><i class="bi bi-file-earmark-pdf"></i> Xuất PDF</button>
+              <button id="btnTopSignerExcel" class="btn btn-success btn-sm"><i class="bi bi-file-earmark-excel"></i> Tải Excel</button>
+            </div>
+            <div class="table-responsive">
+              <table id="topSignerTable" class="table table-striped table-bordered">
+                <thead class="table-dark">
+                  <tr>
+                    <th>STT</th>
+                    <th>Tên người ký</th>
+                    <th>Số hồ sơ đã ký</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top 5 người đặt phòng nhiều nhất -->
+        <div class="card mb-4">
+          <div class="card-header bg-info text-white">
+            <h5 class="mb-0">Top 5 Người đặt phòng nhiều nhất</h5>
+          </div>
+          <div class="card-body">
+            <div class="d-flex justify-content-end gap-2 mb-2">
+              <button id="btnTopBookerPDF" class="btn btn-danger btn-sm"><i class="bi bi-file-earmark-pdf"></i> Xuất PDF</button>
+              <button id="btnTopBookerExcel" class="btn btn-success btn-sm"><i class="bi bi-file-earmark-excel"></i> Tải Excel</button>
+            </div>
+            <div class="table-responsive">
+              <table id="topBookerTable" class="table table-striped table-bordered">
+                <thead class="table-dark">
+                  <tr>
+                    <th>STT</th>
+                    <th>Tên người đặt</th>
+                    <th>Số lần đặt phòng</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
 
     </div>
   </main>

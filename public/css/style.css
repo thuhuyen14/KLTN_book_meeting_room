@@ -446,3 +446,26 @@ header.bg-primary {
     pointer-events: auto; /* cho phép click khi hover */
   }
 }
+th.sortable {
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+}
+
+th.sortable::after {
+  content: "⇅"; 
+  position: absolute;
+  right: 8px;
+  font-size: 12px;
+  opacity: 0.4;
+}
+
+th.sortable.sorted-asc::after {
+  content: "↑";
+  opacity: 1;
+}
+
+th.sortable.sorted-desc::after {
+  content: "↓";
+  opacity: 1;
+}

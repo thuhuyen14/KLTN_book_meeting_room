@@ -1955,16 +1955,16 @@ app.get('/api/report/sign', async (req, res) => {
   }
 });
 
-// 4️⃣ Báo cáo người dùng
+//4️⃣ Báo cáo người dùng (với filter phòng ban & người dùng)
 app.get('/api/report/users', async (req, res) => {
   try {
-    const { dept } = req.query;
+    const { dept, user_id } = req.query;
 
     let sql = `
       SELECT
+        u.id,
         up.full_name,
         d.name AS department,
-        0 AS login_count, -- không có bảng logins
         (SELECT COUNT(*) FROM bookings b WHERE b.user_id = u.id) AS booking_count,
         (SELECT COUNT(*) FROM documents doc WHERE doc.created_by = u.id) AS document_count
       FROM users u
@@ -1974,9 +1974,59 @@ app.get('/api/report/users', async (req, res) => {
     `;
 
     const params = [];
-    if (dept) { sql += " AND u.department_id = ?"; params.push(dept); }
+    
+    // Filter by department
+    if (dept) { 
+      sql += " AND d.name = ?"; 
+      params.push(dept); 
+    }
+
+    // Filter by user(s) - nếu có multiple user_id
+    if (user_id) {
+      const userIds = Array.isArray(user_id) ? user_id : [user_id];
+      const placeholders = userIds.map(() => '?').join(',');
+      sql += ` AND u.id IN (${placeholders})`;
+      params.push(...userIds);
+    }
 
     sql += " ORDER BY booking_count DESC";
+
+    console.log("Query:", sql, "Params:", params);
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// 5️⃣ CÁC API THỐNG KÊ (DASHBOARD)
+// ==========================================
+
+// 5.1 Top 5 Phòng được đặt nhiều nhất
+app.get('/api/stats/top-rooms', async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const params = [];
+
+    let sql = `
+      SELECT 
+        r.name AS room_name,
+        COUNT(b.id) AS count,
+        ROUND(SUM(TIMESTAMPDIFF(MINUTE, b.start_time, b.end_time)) / 60, 1) AS total_hours
+      FROM bookings b
+      JOIN rooms r ON b.room_id = r.id
+      WHERE 1=1
+    `;
+
+    if (from) { sql += " AND DATE(b.start_time) >= ?"; params.push(from); }
+    if (to) { sql += " AND DATE(b.start_time) <= ?"; params.push(to); }
+
+    sql += `
+      GROUP BY r.id, r.name
+      ORDER BY count DESC
+      LIMIT 5
+    `;
 
     const [rows] = await db.query(sql, params);
     res.json(rows);
@@ -1985,7 +2035,102 @@ app.get('/api/report/users', async (req, res) => {
   }
 });
 
+// 5.2 Top 5 Khung giờ cao điểm (theo giờ bắt đầu)
+app.get('/api/stats/top-hours', async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const params = [];
 
+    let sql = `
+      SELECT 
+        CONCAT(DATE_FORMAT(b.start_time, '%H:00'), ' - ', DATE_FORMAT(DATE_ADD(b.start_time, INTERVAL 1 HOUR), '%H:00')) AS time_frame,
+        COUNT(b.id) AS count
+      FROM bookings b
+      WHERE 1=1
+    `;
+
+    if (from) { sql += " AND DATE(b.start_time) >= ?"; params.push(from); }
+    if (to) { sql += " AND DATE(b.start_time) <= ?"; params.push(to); }
+
+    sql += `
+      GROUP BY time_frame
+      ORDER BY count DESC
+      LIMIT 5
+    `;
+
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 5.3 Top 5 Người ký nhiều nhất (Tính trên các hồ sơ ĐÃ ký)
+app.get('/api/stats/top-signers', async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const params = [];
+
+    // Logic: Đếm số lượng hồ sơ mà người dùng đóng vai trò là 'signer' và trạng thái hồ sơ là 'signed'
+    // Lưu ý: Tùy logic DB của bạn, nếu bảng document_signers có cột status riêng (đã ký/chưa ký) thì sửa WHERE d.status thành ds.status
+    let sql = `
+      SELECT 
+        up.full_name,
+        COUNT(ds.document_id) AS signed_count
+      FROM document_signers ds
+      JOIN documents d ON ds.document_id = d.id
+      JOIN users u ON ds.signer_id = u.id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      WHERE d.status = 'Đã duyệt'
+    `;
+
+    if (from) { sql += " AND DATE(d.created_at) >= ?"; params.push(from); }
+    if (to) { sql += " AND DATE(d.created_at) <= ?"; params.push(to); }
+
+    sql += `
+      GROUP BY u.id, up.full_name
+      ORDER BY signed_count DESC
+      LIMIT 5
+    `;
+
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 5.4 Top 5 Người đặt phòng nhiều nhất
+app.get('/api/stats/top-bookers', async (req, res) => {
+  try {
+    const { from, to } = req.query;
+    const params = [];
+
+    let sql = `
+      SELECT 
+        up.full_name,
+        COUNT(b.id) AS booking_count
+      FROM bookings b
+      JOIN users u ON b.user_id = u.id
+      LEFT JOIN user_profiles up ON up.user_id = u.id
+      WHERE 1=1
+    `;
+
+    if (from) { sql += " AND DATE(b.start_time) >= ?"; params.push(from); }
+    if (to) { sql += " AND DATE(b.start_time) <= ?"; params.push(to); }
+
+    sql += `
+      GROUP BY u.id, up.full_name
+      ORDER BY booking_count DESC
+      LIMIT 5
+    `;
+
+    const [rows] = await db.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Serve index.html for any other route (SPA fallback)
 app.get('*', (req, res) => {

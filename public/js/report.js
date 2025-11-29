@@ -197,7 +197,7 @@ async function exportTableToPDF({ tableEl, title = "Báo cáo", creator = "Admin
 
   // Header background (light gray)
   doc.setFillColor(240, 240, 240);
-  doc.rect(marginLeft, cursorY, contentWidth, 35, "F");
+  doc.rect(marginLeft, cursorY, contentWidth, 20, "F");
 
   // Logo (left side)
   if (logoImg && logoImg.complete && logoImg.naturalWidth) {
@@ -324,7 +324,7 @@ function getActiveReportInfo() {
   const paneId = activePane.id;
   const map = {
     roomReport: { tableId: "roomReportTable", title: "Báo cáo sử dụng phòng họp", creatorId: "creator1" },
-    roomLog: { tableId: "roomLogTable", title: "Nhật ký đặt phòng", creatorId: "creator2" },
+    // roomLog: { tableId: "roomLogTable", title: "Nhật ký đặt phòng", creatorId: "creator2" },
     signReport: { tableId: "signReportTable", title: "Báo cáo trình ký", creatorId: "creator3" },
     userReport: { tableId: "userReportTable", title: "Báo cáo người dùng hoạt động", creatorId: "creator4" }
   };
@@ -344,7 +344,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const el = document.getElementById(id);
     if (el) el.textContent = formatDateTime(new Date());
   });
-
+  ["creator1","creator2","creator3","creator4"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = localStorage.getItem("full_name") || "—";
+  });
   /* ---------- load filters & initial data ---------- */
   // LOAD ROOM FILTERS
   async function loadRoomFilters() {
@@ -374,7 +377,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (room_id) params.append("room_id", room_id);
       if (user_id) params.append("user_id", user_id);
       const data = await fetchJSON(`/api/report/rooms?${params.toString()}`);
-      const tbody = document.getElementById("roomReportTable");
+      const tbody = document.querySelector("#roomReportTable tbody");
       if (!tbody) return;
       tbody.innerHTML = "";
       data.forEach(row => {
@@ -395,37 +398,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("btnRoomSearch")?.addEventListener("click", loadRoomReport);
   await loadRoomReport();
 
-  // ROOM LOG
-  async function loadRoomLog() {
-    try {
-      const from = document.getElementById("log_from")?.value;
-      const to = document.getElementById("log_to")?.value;
-      const action = document.getElementById("log_action")?.value;
-      const params = new URLSearchParams();
-      if (from) params.append("from", from);
-      if (to) params.append("to", to);
-      if (action) params.append("action", action);
-      const rows = await fetchJSON(`/api/report/room-log?${params.toString()}`);
-      const tbody = document.getElementById("roomLogTable");
-      if (!tbody) return;
-      tbody.innerHTML = "";
-      rows.forEach(l => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${formatDateTime(l.created_at)}</td>
-          <td>${l.room_name}</td>
-          <td>${l.action}</td>
-          <td>${l.actor}</td>
-          <td>${l.detail}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    } catch (e) {
-      console.warn("loadRoomLog error:", e);
-    }
-  }
-  document.getElementById("btnLogSearch")?.addEventListener("click", loadRoomLog);
-  await loadRoomLog();
 
   // SIGN REPORT
   async function loadSignReport() {
@@ -438,7 +410,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (to) params.append("to", to);
       if (status) params.append("status", status);
       const rows = await fetchJSON(`/api/report/sign?${params.toString()}`);
-      const tbody = document.getElementById("signReportTable");
+      const tbody = document.querySelector("#signReportTable tbody");
       if (!tbody) return;
       tbody.innerHTML = "";
       rows.forEach(d => {
@@ -459,32 +431,94 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("btnSignSearch")?.addEventListener("click", loadSignReport);
   await loadSignReport();
 
-  // USER ACTIVITY
-  async function loadUserActivity() {
-    try {
-      const dept = document.getElementById("filter_dept")?.value;
-      const params = dept ? `?dept=${dept}` : "";
-      const rows = await fetchJSON(`/api/report/users${params}`);
-      const tbody = document.getElementById("userReportTable");
-      if (!tbody) return;
-      tbody.innerHTML = "";
-      rows.forEach(u => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${u.full_name}</td>
-          <td>${u.department}</td>
-          <td>${u.login_count}</td>
-          <td>${u.booking_count}</td>
-          <td>${u.document_count}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    } catch (e) {
-      console.warn("loadUserActivity error:", e);
-    }
+/* ---------------------------
+   USER ACTIVITY + SORT
+---------------------------- */
+
+let userRowsCache = [];
+let sortDir = 1;
+
+function renderUserTable(rows) {
+  const tbody = document.querySelector("#userReportTable tbody");
+  tbody.innerHTML = "";
+  rows.forEach(u => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${u.full_name}</td>
+      <td>${u.department}</td>
+      <td>${u.booking_count}</td>
+      <td>${u.document_count}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function loadUserActivity() {
+  try {
+    const dept = document.getElementById("filter_dept")?.value || "";
+    const params = dept ? `?dept=${encodeURIComponent(dept)}` : "";
+
+    const rows = await fetchJSON(`/api/report/users${params}`);
+
+    userRowsCache = rows.slice();
+    renderUserTable(userRowsCache);
+  } catch (e) {
+    console.warn("loadUserActivity error:", e);
   }
-  document.getElementById("btnUserSearch")?.addEventListener("click", loadUserActivity);
-  await loadUserActivity();
+}
+
+/* --- SORT WITH ARROWS --- */
+document.querySelectorAll("thead th.sortable").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.key;
+
+    // reset arrow icons
+    document.querySelectorAll("thead th.sortable")
+      .forEach(h => h.classList.remove("sorted-asc", "sorted-desc"));
+
+    sortDir *= -1;
+
+    if (sortDir === 1) th.classList.add("sorted-asc");
+    else th.classList.add("sorted-desc");
+
+    userRowsCache.sort((a, b) => {
+      if (!isNaN(Number(a[key]))) {
+        return (Number(a[key]) - Number(b[key])) * sortDir;
+      }
+      return a[key].localeCompare(b[key]) * sortDir;
+    });
+
+    renderUserTable(userRowsCache);
+  });
+});
+
+/* Load departments (dropdown) */
+async function loadDepartments() {
+  try {
+    const list = await fetchJSON("/api/departments");
+    const select = document.getElementById("filter_dept");
+    if (!select) return;
+
+    select.innerHTML = `<option value="">Tất cả</option>`;
+
+    list.forEach(dep => {
+      const opt = document.createElement("option");
+      opt.value = dep.name;
+      opt.textContent = dep.name;
+      select.appendChild(opt);
+    });
+  } catch (e) {
+    console.warn("loadDepartments error:", e);
+  }
+}
+
+/* --- BIND EVENTS --- */
+// document.getElementById("filter_dept")?.addEventListener("change", loadUserActivity);
+document.getElementById("btnUserSearch")?.addEventListener("click", loadUserActivity);
+
+/* Init */
+await loadDepartments();
+await loadUserActivity();
 
   /* ---------- BIND EXPORT BUTTONS ---------- */
 
@@ -530,22 +564,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       fileName: "BaoCao_SuDungPhongHop.xlsx"
     })
   );
-
-  document.getElementById("btnLogPDF")?.addEventListener("click", () =>
-    exportTableToPDF({
-      tableEl: "roomLogTable",
-      title: "Nhật ký đặt phòng",
-      creator: getCreatorInfo(),
-      logoSrc: "images/dnse_logo.png"
-    })
-  );
-  document.getElementById("btnLogExcel")?.addEventListener("click", () =>
-    exportTableToExcel({
-      tableEl: "roomLogTable",
-      fileName: "NhatKy_DatPhong.xlsx"
-    })
-  );
-
   document.getElementById("btnSignPDF")?.addEventListener("click", () =>
     exportTableToPDF({
       tableEl: "signReportTable",
@@ -575,4 +593,140 @@ document.addEventListener("DOMContentLoaded", async () => {
       fileName: "BaoCao_NguoiDung.xlsx"
     })
   );
+/* ===========================================================
+     TAB 5: THỐNG KÊ (STATS)
+     Các hàm tải dữ liệu và export cho tab Thống kê
+     =========================================================== */
+
+  // Hàm render chung cho bảng thống kê để đỡ lặp code
+  function renderStatsTable(tableId, data, columns) {
+    const tbody = document.querySelector(`#${tableId} tbody`);
+    if (!tbody) return;
+    tbody.innerHTML = "";
+    
+    if (!data || data.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="${columns.length + 1}" class="text-center text-muted">Không có dữ liệu</td></tr>`;
+      return;
+    }
+
+    data.forEach((item, index) => {
+      const tr = document.createElement("tr");
+      // Cột đầu tiên luôn là STT
+      let html = `<td>${index + 1}</td>`;
+      // Map các cột còn lại theo key truyền vào
+      columns.forEach(key => {
+        html += `<td>${item[key] !== undefined ? item[key] : "-"}</td>`;
+      });
+      tr.innerHTML = html;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Hàm chính: Gọi API và hiển thị dữ liệu
+  async function loadStatsReport() {
+    const from = document.getElementById("stats_from")?.value;
+    const to = document.getElementById("stats_to")?.value;
+    
+    // Tạo query string
+    const params = new URLSearchParams();
+    if (from) params.append("from", from);
+    if (to) params.append("to", to);
+    const queryString = params.toString();
+
+    // 1. Top 5 Phòng họp
+    try {
+      // Backend api dự kiến: /api/stats/top-rooms
+      const dataRooms = await fetchJSON(`/api/stats/top-rooms?${queryString}`);
+      // Mapping key: room_name, count, total_hours
+      renderStatsTable("topRoomTable", dataRooms, ["room_name", "count", "total_hours"]);
+    } catch (e) {
+      console.warn("Lỗi tải Top Rooms:", e);
+    }
+
+    // 2. Top 5 Khung giờ
+    try {
+      // Backend api dự kiến: /api/stats/top-hours
+      const dataHours = await fetchJSON(`/api/stats/top-hours?${queryString}`);
+      // Mapping key: time_frame, count
+      renderStatsTable("topHourTable", dataHours, ["time_frame", "count"]);
+    } catch (e) {
+      console.warn("Lỗi tải Top Hours:", e);
+    }
+
+    // 3. Top 5 Người ký
+    try {
+      // Backend api dự kiến: /api/stats/top-signers
+      const dataSigners = await fetchJSON(`/api/stats/top-signers?${queryString}`);
+      // Mapping key: full_name, signed_count
+      renderStatsTable("topSignerTable", dataSigners, ["full_name", "signed_count"]);
+    } catch (e) {
+      console.warn("Lỗi tải Top Signers:", e);
+    }
+
+    // 4. Top 5 Người đặt phòng
+    try {
+      // Backend api dự kiến: /api/stats/top-bookers
+      const dataBookers = await fetchJSON(`/api/stats/top-bookers?${queryString}`);
+      // Mapping key: full_name, booking_count
+      renderStatsTable("topBookerTable", dataBookers, ["full_name", "booking_count"]);
+    } catch (e) {
+      console.warn("Lỗi tải Top Bookers:", e);
+    }
+  }
+
+  // Gắn sự kiện nút Tìm kiếm
+  document.getElementById("btnStatsSearch")?.addEventListener("click", loadStatsReport);
+
+  // --- GẮN SỰ KIỆN EXPORT RIÊNG CHO TỪNG BẢNG THỐNG KÊ ---
+
+  // 1. Export Top Phòng
+  document.getElementById("btnTopRoomPDF")?.addEventListener("click", () => 
+    exportTableToPDF({ 
+      tableEl: "topRoomTable", 
+      title: "Thống kê Top 5 Phòng họp", 
+      creator: getCreatorInfo(), logoSrc: "images/dnse_logo.png" 
+    })
+  );
+  document.getElementById("btnTopRoomExcel")?.addEventListener("click", () => 
+    exportTableToExcel({ tableEl: "topRoomTable", fileName: "ThongKe_TopPhong.xlsx" })
+  );
+
+  // 2. Export Top Khung giờ
+  document.getElementById("btnTopHourPDF")?.addEventListener("click", () => 
+    exportTableToPDF({ 
+      tableEl: "topHourTable", 
+      title: "Thống kê Top 5 Khung giờ cao điểm", 
+      creator: getCreatorInfo(), logoSrc: "images/dnse_logo.png" 
+    })
+  );
+  document.getElementById("btnTopHourExcel")?.addEventListener("click", () => 
+    exportTableToExcel({ tableEl: "topHourTable", fileName: "ThongKe_TopKhungGio.xlsx" })
+  );
+
+  // 3. Export Top Người ký
+  document.getElementById("btnTopSignerPDF")?.addEventListener("click", () => 
+    exportTableToPDF({ 
+      tableEl: "topSignerTable", 
+      title: "Thống kê Top 5 Người ký nhiều nhất", 
+      creator: getCreatorInfo(), logoSrc: "images/dnse_logo.png" 
+    })
+  );
+  document.getElementById("btnTopSignerExcel")?.addEventListener("click", () => 
+    exportTableToExcel({ tableEl: "topSignerTable", fileName: "ThongKe_TopNguoiKy.xlsx" })
+  );
+
+  // 4. Export Top Người đặt
+  document.getElementById("btnTopBookerPDF")?.addEventListener("click", () => 
+    exportTableToPDF({ 
+      tableEl: "topBookerTable", 
+      title: "Thống kê Top 5 Người đặt phòng", 
+      creator: getCreatorInfo(), logoSrc: "images/dnse_logo.png" 
+    })
+  );
+  document.getElementById("btnTopBookerExcel")?.addEventListener("click", () => 
+    exportTableToExcel({ tableEl: "topBookerTable", fileName: "ThongKe_TopNguoiDat.xlsx" })
+  );
+
+  // Tải dữ liệu mặc định khi mới vào trang (nếu muốn)
+  // await loadStatsReport();
 });
