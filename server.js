@@ -1110,7 +1110,16 @@ app.get('/api/notifications/:userId', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
+// PUT đánh dấu đã đọc
+app.put('/api/notifications/read/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query("UPDATE notifications SET is_read = 1 WHERE id = ?", [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 app.get('/api/bookings/:id/detail', async (req, res) => {
   const bookingId = req.params.id;
 
@@ -1991,7 +2000,7 @@ app.get('/api/report/users', async (req, res) => {
 
     sql += " ORDER BY booking_count DESC";
 
-    console.log("Query:", sql, "Params:", params);
+    // console.log("Query:", sql, "Params:", params);
     const [rows] = await db.query(sql, params);
     res.json(rows);
   } catch (err) {

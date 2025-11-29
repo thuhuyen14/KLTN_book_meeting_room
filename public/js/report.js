@@ -89,13 +89,13 @@ function getActiveTabFilters() {
     filters.to = to ? formatDateOnly(to) : "TẤT CẢ";
     filters.room = room;
     filters.user = user;
-  } else if (paneId === "roomLog") {
-    const from = document.getElementById("log_from")?.value;
-    const to = document.getElementById("log_to")?.value;
-    const action = document.getElementById("log_action")?.value || "TẤT CẢ";
-    filters.from = from ? formatDateOnly(from) : "TẤT CẢ";
-    filters.to = to ? formatDateOnly(to) : "TẤT CẢ";
-    filters.action = action;
+  // } else if (paneId === "roomLog") {
+  //   const from = document.getElementById("log_from")?.value;
+  //   const to = document.getElementById("log_to")?.value;
+  //   const action = document.getElementById("log_action")?.value || "TẤT CẢ";
+  //   filters.from = from ? formatDateOnly(from) : "TẤT CẢ";
+  //   filters.to = to ? formatDateOnly(to) : "TẤT CẢ";
+  //   filters.action = action;
   } else if (paneId === "signReport") {
     const from = document.getElementById("sign_from")?.value;
     const to = document.getElementById("sign_to")?.value;
@@ -326,7 +326,8 @@ function getActiveReportInfo() {
     roomReport: { tableId: "roomReportTable", title: "Báo cáo sử dụng phòng họp", creatorId: "creator1" },
     // roomLog: { tableId: "roomLogTable", title: "Nhật ký đặt phòng", creatorId: "creator2" },
     signReport: { tableId: "signReportTable", title: "Báo cáo trình ký", creatorId: "creator3" },
-    userReport: { tableId: "userReportTable", title: "Báo cáo người dùng hoạt động", creatorId: "creator4" }
+    userReport: { tableId: "userReportTable", title: "Báo cáo người dùng hoạt động", creatorId: "creator4" },
+    statReport: { tableId: "statReportTable", title: "Báo cáo thống kê", creatorId: "creator5" }
   };
   return map[paneId] || {
     tableId: activePane.querySelector("table")?.id,
@@ -340,11 +341,11 @@ function getActiveReportInfo() {
 --------------------------- */
 document.addEventListener("DOMContentLoaded", async () => {
   // set print times if elements exist
-  ["printTime1", "printTime2", "printTime3", "printTime4"].forEach(id => {
+  ["printTime1", "printTime2", "printTime3", "printTime4", "printTime5"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = formatDateTime(new Date());
   });
-  ["creator1","creator2","creator3","creator4"].forEach(id => {
+  ["creator1","creator2","creator3","creator4", "creator5"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.textContent = localStorage.getItem("full_name") || "—";
   });

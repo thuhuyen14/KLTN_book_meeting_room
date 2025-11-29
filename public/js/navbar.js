@@ -1,29 +1,40 @@
-// Chạy sau khi navbar đã load xong
+/* =========================================================
+   NAVBAR CONTROLLER
+   Xử lý logic hiển thị menu, thông báo và sự kiện
+   ========================================================= */
+
+// Biến toàn cục để chứa ID người dùng
+let CURRENT_USER_ID = null;
+
+// Chạy sau khi navbar HTML đã được load vào div placeholder
 function initNavbar() {
-  // User menu
+  // 1. Lấy thông tin user từ localStorage
   const token = localStorage.getItem("token");
   const role = localStorage.getItem("role");
   const full_name = localStorage.getItem("full_name");
   const avatar_url = localStorage.getItem("avatar_url");
   const userMenu = document.getElementById("userMenu");
+  
+  // Lưu ID ra biến toàn cục để dùng cho các hàm khác
+  CURRENT_USER_ID = localStorage.getItem("id");
 
   if (!userMenu) return;
-  // ===== 4️⃣ Phân quyền admin =====
-  const isAdmin = role?.toLowerCase() === 'administrator'; // lấy tên role, tránh nhầm role_id với role name
+
+  // 2. Logic phân quyền Admin
+  const isAdmin = role?.toLowerCase() === 'administrator';
   const currentPage = window.location.pathname.split("/").pop();
   const adminPages = ["admin.html", "report.html"];
 
   if (!isAdmin) {
-    // Ẩn tab admin
     document.querySelectorAll(".admin-only").forEach(tab => tab.style.display = "none");
-
-    // Chặn truy cập trực tiếp
     if (adminPages.includes(currentPage)) {
       alert("Bạn không có quyền truy cập trang này");
       window.location.href = "index.html";
+      return;
     }
   }
 
+  // 3. Render Avatar & Menu User
   function normalizeAvatar(url, name) {
     if (url && url.trim() !== '') return url;
     if (name && name.trim() !== '') {
@@ -37,72 +48,199 @@ function initNavbar() {
     const avatarSrc = normalizeAvatar(avatar_url, full_name);
     userMenu.innerHTML = `
       <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
           <img src="${avatarSrc}" alt="avatar" class="rounded-circle me-2" width="30" height="30">
-          <span>${full_name || "Tài khoản"}</span>
+          <span class="d-none d-sm-inline">${full_name || "Tài khoản"}</span>
         </a>
-        <ul class="dropdown-menu dropdown-menu-end">
-          <li class="dropdown-item-text text-muted small">Vai trò: ${role || "user"}</li>
+        <ul class="dropdown-menu dropdown-menu-end shadow">
+          <li class="dropdown-item-text text-muted small">Vai trò: <strong>${role || "User"}</strong></li>
           <li><hr class="dropdown-divider"></li>
-          <li><a class="dropdown-item" href="profile.html">Trang cá nhân</a></li>
-          <li><a class="dropdown-item" href="#" id="logoutBtn">Đăng xuất</a></li>
+          <li><a class="dropdown-item" href="profile.html"><i class="bi bi-person me-2"></i>Trang cá nhân</a></li>
+          <li><a class="dropdown-item text-danger" href="#" id="logoutBtn"><i class="bi bi-box-arrow-right me-2"></i>Đăng xuất</a></li>
         </ul>
       </li>
     `;
-    const logoutBtn = document.getElementById("logoutBtn");
-    if (logoutBtn) {
-      logoutBtn.addEventListener("click", () => {
-        localStorage.clear();
-        sessionStorage.clear();
-        userMenu.innerHTML = `<li class="nav-item"><a class="btn btn-outline-light ms-2" href="login.html">Đăng nhập</a></li>`;
-        const notifList = document.getElementById("notification-list");
-        const notifCount = document.getElementById("notification-count");
-        if (notifList) notifList.innerHTML = '<li>Chưa có thông báo nào</li>';
-        if (notifCount) notifCount.textContent = '0';
-      });
-    }
+    
+    // Gắn sự kiện đăng xuất
+    document.getElementById("logoutBtn")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = "login.html";
+    });
+
+    // 4. Tải thông báo (Chỉ tải khi đã đăng nhập)
+    loadNotifications();
+
   } else {
+    // Chưa đăng nhập
     userMenu.innerHTML = `<li class="nav-item"><a class="btn btn-outline-light ms-2" href="login.html">Đăng nhập</a></li>`;
   }
 
-  // Notifications
-  loadNotifications();
-
-  // Active link
+  // 5. Active Link (Tô đậm tab hiện tại)
   const path = window.location.pathname.split("/").pop();
-  document.querySelectorAll(".navbar-nav .nav-link").forEach(link => link.classList.remove("active"));
-  const currentLink = document.querySelector(`.navbar-nav .nav-link[href='${path}']`);
-  if (currentLink) currentLink.classList.add("active");
+  document.querySelectorAll(".navbar-nav .nav-link").forEach(link => {
+    link.classList.remove("active");
+    if (link.getAttribute('href') === path) {
+        link.classList.add("active");
+    }
+  });
 }
 
-// Thông báo
+/* =========================================================
+   LOGIC THÔNG BÁO (NOTIFICATION)
+   Được đưa ra ngoài scope của initNavbar để HTML onclick gọi được
+   ========================================================= */
+
+// Hàm tải danh sách thông báo từ API
 async function loadNotifications() {
   const notifList = document.getElementById('notification-list');
-  const notifCount = document.getElementById('notification-count');
-  const userId = localStorage.getItem('id');
-  if (!userId || !notifList || !notifCount) return;
+  const userId = CURRENT_USER_ID || localStorage.getItem("id");
+
+  if (!userId || !notifList) return;
 
   try {
     const res = await fetch(`/api/notifications/${userId}`);
-    if (!res.ok) throw new Error('Không tải được thông báo');
+    // Xử lý lỗi nếu server trả về 404 hoặc 500
+    if (!res.ok) {
+        console.warn("API thông báo lỗi hoặc không có dữ liệu");
+        return;
+    }
+    
     const data = await res.json();
-
     notifList.innerHTML = '';
+
+    // Logic đếm số lượng chưa đọc (is_read == 0)
+    // Lưu ý: Dùng filter lọc các bản ghi có is_read là 0 hoặc "0"
+    const unreadCount = data.filter(n => n.is_read == 0).length;
+    
+    // Cập nhật Badge
+    updateBadgeCount(unreadCount);
+
     if (data.length === 0) {
-      notifList.innerHTML = '<li>Chưa có thông báo nào</li>';
-      notifCount.textContent = '0';
+      notifList.innerHTML = `
+        <div class="p-4 text-center text-muted">
+            <i class="bi bi-bell-slash display-6 mb-2 d-block"></i>
+            <small>Bạn chưa có thông báo nào</small>
+        </div>`;
     } else {
-      notifCount.textContent = data.length;
       data.forEach(n => {
-        const li = document.createElement('li');
-        const createdAt = new Date(n.created_at);
-        const formattedDate = isNaN(createdAt) ? n.created_at :
-          createdAt.toLocaleString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false});
-        li.textContent = `${formattedDate} - ${n.message}`;
-        notifList.appendChild(li);
+        // Kiểm tra xem tin này đã đọc hay chưa
+        const isUnread = (n.is_read == 0);
+        
+        // Tạo phần tử DIV cho mỗi thông báo
+        const div = document.createElement('div');
+        div.id = `notif-item-${n.id}`;
+        // Thêm class list-group-item của Bootstrap + CSS tùy chỉnh
+        div.className = "list-group-item list-group-item-action d-flex align-items-start p-3 border-bottom";
+        
+        // Màu nền: Xanh nhạt nếu chưa đọc, trắng nếu đã đọc
+        div.style.backgroundColor = isUnread ? "#e8f5e9" : "#fff";
+        div.style.transition = "background-color 0.3s";
+
+        // Format thời gian
+        const dateObj = new Date(n.created_at);
+        const timeStr = !isNaN(dateObj) 
+            ? dateObj.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) 
+            : '';
+
+        // Nội dung HTML
+        div.innerHTML = `
+          <div class="flex-grow-1 pe-2">
+             <div class="mb-1 ${isUnread ? 'fw-bold text-dark' : 'text-secondary'}" style="font-size: 0.9rem; line-height: 1.4;">
+                ${n.message}
+             </div>
+             <small class="text-muted" style="font-size: 0.75rem;">
+                <i class="bi bi-clock me-1"></i>${timeStr}
+             </small>
+          </div>
+          
+          ${isUnread ? `
+            <div class="ms-2">
+                <button class="btn btn-outline-success btn-sm rounded-circle d-flex align-items-center justify-content-center p-0" 
+                        style="width: 32px; height: 32px;"
+                        title="Đánh dấu đã xem" 
+                        onclick="window.markAsRead(${n.id}, event)">
+                  <i class="bi bi-check-lg"></i>
+                </button>
+            </div>
+          ` : ''}
+        `;
+        
+        notifList.appendChild(div);
       });
     }
   } catch (err) {
     console.error('Lỗi khi tải thông báo:', err);
+    notifList.innerHTML = '<div class="p-3 text-center text-danger small">Không tải được dữ liệu</div>';
+  }
+}
+
+// Hàm đánh dấu đã đọc (Gắn vào window để gọi được từ HTML onclick)
+window.markAsRead = async function(notifId, event) {
+  // 1. Chặn sự kiện click lan ra ngoài (để không đóng dropdown)
+  if(event) {
+      event.stopPropagation();
+      event.preventDefault();
+  }
+
+  console.log("Đang tick đã xem ID:", notifId); // Debug
+
+  try {
+    const res = await fetch(`/api/notifications/read/${notifId}`, { method: 'PUT' });
+    
+    if (res.ok) {
+      // 2. Tìm dòng thông báo đó trong DOM
+      const itemRow = document.getElementById(`notif-item-${notifId}`);
+      if (!itemRow) return;
+
+      // 3. Ẩn nút tick đi (tìm nút button và xóa nó)
+      const btnDiv = itemRow.querySelector("div:last-child");
+      if(btnDiv && btnDiv.querySelector("button")) {
+          btnDiv.remove(); // Xóa cả cụm chứa nút tick
+      }
+
+      // 4. Đổi màu nền về trắng và chữ về thường
+      itemRow.style.backgroundColor = "#fff";
+      const msgContent = itemRow.querySelector("div:first-child > div");
+      if(msgContent) {
+          msgContent.classList.remove("fw-bold", "text-dark");
+          msgContent.classList.add("text-secondary");
+      }
+
+      // 5. Giảm số trên badge đỏ
+      const notifCountBadge = document.getElementById('notification-count');
+      if(notifCountBadge) {
+          let currentCount = parseInt(notifCountBadge.textContent || '0');
+          if (currentCount > 0) {
+            updateBadgeCount(currentCount - 1);
+          }
+      }
+    } else {
+        console.error("Lỗi server khi update trạng thái");
+    }
+  } catch (e) {
+    console.error("Lỗi kết nối:", e);
+  }
+};
+
+// Hàm cập nhật hiển thị số badge
+function updateBadgeCount(count) {
+  const badge = document.getElementById('notification-count');
+  if (!badge) return;
+  
+  const num = parseInt(count);
+
+  if (num > 0) {
+    badge.textContent = num > 99 ? '99+' : num;
+    badge.style.display = 'inline-block'; // Bắt buộc hiện
+    badge.classList.remove('d-none');
+    
+    // Hiệu ứng rung chuông khi có tin mới (Optional)
+    const bellIcon = document.querySelector("#notification-bell i");
+    if(bellIcon) bellIcon.classList.add("animate__animated", "animate__swing");
+  } else {
+    badge.textContent = '0';
+    badge.style.display = 'none'; // Ẩn đi
   }
 }

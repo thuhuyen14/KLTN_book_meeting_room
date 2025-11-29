@@ -48,13 +48,20 @@
   <script src="js/navbar.js"></script> <!-- file navbar logic bạn vừa tạo --> 
   <script>
     $(document).ready(function() {
-      $("#navbar-placeholder").load("navbar.html", function() {
-        // Navbar đã load xong → khởi tạo menu user, thông báo, active tab
-        if (typeof initNavbar === "function") initNavbar();
+      // Tải navbar.html và ép trình duyệt không dùng cache cũ
+      $("#navbar-placeholder").load("navbar.html?v=" + Math.random(), function(response, status, xhr) {
+        if (status == "error") {
+          console.log("Lỗi tải navbar: " + xhr.status + " " + xhr.statusText);
+        } else {
+          // Load xong HTML thì mới chạy logic JS
+          console.log("Navbar HTML loaded!");
+          if (typeof initNavbar === "function") {
+              initNavbar();
+          }
+        }
       });
     });
   </script>
-  
   <!-- Modal chỉnh sửa cuộc họp -->
   <div class="modal fade" id="editBookingModal" tabindex="-1" aria-labelledby="editBookingLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">

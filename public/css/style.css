@@ -435,17 +435,18 @@ header.bg-primary {
 }
 
 /* Chỉ dành cho desktop */
-@media (min-width: 992px) {
+/* @media (min-width: 992px) {
   .navbar .dropdown:hover .dropdown-menu {
     display: block;
     margin-top: 0;
-    pointer-events: none; /* chặn click khi chưa hover */
+    pointer-events: none;
   }
   
   .navbar .dropdown:hover .dropdown-menu {
-    pointer-events: auto; /* cho phép click khi hover */
+    pointer-events: auto;
   }
-}
+} */
+
 th.sortable {
   cursor: pointer;
   position: relative;
