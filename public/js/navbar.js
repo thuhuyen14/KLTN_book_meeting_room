@@ -62,11 +62,24 @@ function initNavbar() {
     `;
     
     // Gắn sự kiện đăng xuất
+// Gắn sự kiện đăng xuất (ĐÃ SỬA ĐỂ FIX LỖI MÀN HÌNH ĐEN)
     document.getElementById("logoutBtn")?.addEventListener("click", (e) => {
       e.preventDefault();
+      
+      // 1. Dọn dẹp dữ liệu phiên
       localStorage.clear();
       sessionStorage.clear();
-      window.location.href = "login.html";
+
+      // 2. 🔥 CƯỠNG CHẾ XÓA MỌI LỚP MÀN ĐEN NGAY LẬP TỨC
+      // Xóa class khóa cuộn của body
+      document.body.classList.remove('modal-open', 'swal2-shown', 'swal2-height-auto');
+      document.body.style = ""; 
+
+      // Tìm và diệt các thẻ div màn đen (của Bootstrap Modal hoặc SweetAlert)
+      document.querySelectorAll('.modal-backdrop, .swal2-container, .swal2-backdrop-show').forEach(el => el.remove());
+
+      // 3. Dùng replace thay vì href để người dùng không bấm Back quay lại được
+      window.location.replace("login.html");
     });
 
     // 4. Tải thông báo (Chỉ tải khi đã đăng nhập)

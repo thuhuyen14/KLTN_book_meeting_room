@@ -141,105 +141,7 @@ header.bg-primary {
 @supports (aspect-ratio: 16/9) {
   #mainCarousel .carousel-item { height: auto; aspect-ratio: 16/9; }
 }
-/* Custom Carousel Styles */
-/* .custom-carousel {
-  position: relative;
-  max-width: 900px;
-  margin: 0 auto;
-  overflow: hidden;
-  padding: 40px 0;
-}
 
-.carousel-track {
-  display: flex;
-  transition: transform 0.6s ease;
-}
-
-.carousel-item {
-  min-width: 60%;
-  margin: 0 10px;
-  position: relative;
-  opacity: 0.6;
-  transform: scale(0.85);
-  transition: transform 0.6s ease, opacity 0.6s ease;
-}
-
-.carousel-item.active {
-  opacity: 1;
-  transform: scale(1);
-  z-index: 2;
-}
-
-.carousel-item img {
-  width: 100%;
-  border-radius: 15px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-}
-
-.carousel-item .caption {
-  position: absolute;
-  bottom: 15px;
-  left: 0;
-  right: 0;
-  text-align: center;
-  background: rgba(0,0,0,0.5);
-  color: #fff;
-  padding: 8px;
-  border-radius: 0 0 15px 15px;
-}
-
-.carousel-btn {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  background: rgba(0,0,0,0.5);
-  color: white;
-  border: none;
-  font-size: 1.5rem;
-  padding: 8px 12px;
-  cursor: pointer;
-  border-radius: 50%;
-  z-index: 3;
-}
-
-.carousel-btn:hover {
-  background: rgba(0,0,0,0.8);
-}
-
-.carousel-btn.prev { left: 10px; }
-.carousel-btn.next { right: 10px; } */
-
-/* .mySwiper {
-  width: 100%;
-  max-width: 800px;
-  height: 400px;
-  margin: 0 auto;
-}
-
-.mySwiper .swiper-slide {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  transition: transform 0.4s, opacity 0.4s;
-}
-
-.mySwiper .swiper-slide img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 20px;
-}
-
-.mySwiper .swiper-slide-prev,
-.mySwiper .swiper-slide-next {
-  transform: scale(0.8);
-  opacity: 0.5;
-}
-
-.mySwiper .swiper-slide-active {
-  transform: scale(1);
-  opacity: 1;
-} */
  .notification-bell {
   cursor: pointer;
 }
@@ -469,4 +371,88 @@ th.sortable.sorted-asc::after {
 th.sortable.sorted-desc::after {
   content: "↓";
   opacity: 1;
+}
+  /* 1. Hero Section */
+/* 1. Hero Section */
+.hero-section {
+  /* Sửa dòng url bên dưới thành đường dẫn file local */
+  background: linear-gradient(rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6)), 
+              url('../images/hero_bg.jpg'); /* <-- Đã sửa */
+  
+  background-size: cover;
+  background-position: center;
+  color: white;
+  padding: 100px 0;
+  margin-bottom: 2rem;
+  border-radius: 0 0 0 0;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+.hero-title {
+  /* Sửa font chữ cho đỡ lỗi tiếng Việt */
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  /* Giảm bóng mờ để chữ sắc nét hơn */
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5); 
+}
+
+/* 2. Card tính năng */
+.feature-card {
+  transition: all 0.3s ease;
+  border: none;
+  border-radius: 15px;
+  background: #fff;
+}
+.feature-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 15px 30px rgba(0,0,0,0.1) !important;
+}
+
+/* 3. Icon box */
+.icon-box {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+/* 4. Carousel */
+#mainCarousel {
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+}
+
+.carousel-item img {
+  height: 450px; /* Tăng chiều cao lên chút cho đẹp */
+  object-fit: cover;
+}
+
+/* Caption cho Carousel */
+.carousel-caption-pill {
+  background: rgba(0, 0, 0, 0.6); /* Nền đen mờ */
+  backdrop-filter: blur(5px); /* Làm mờ hậu cảnh */
+  border-radius: 50px;
+  padding: 10px 30px;
+  display: inline-block;
+  margin-bottom: 20px;
+}
+
+/* 5. Nút bấm CTA */
+.btn-cta {
+  padding: 12px 30px;
+  border-radius: 30px;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+  transition: transform 0.2s;
+}
+.btn-cta:hover {
+  transform: scale(1.05);
 }

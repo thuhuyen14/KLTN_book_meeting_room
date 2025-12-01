@@ -1,5 +1,36 @@
 <!doctype html>
 <html lang="vi">
+<style>
+    /* 🔥 NUCLEAR CSS FIX: Ẩn mọi lớp phủ đen bất chấp lý do */
+    
+    /* 1. Ẩn backdrop của Bootstrap và SweetAlert */
+    .modal-backdrop, 
+    .swal2-container,
+    .swal2-backdrop-show,
+    div[class*="backdrop"] {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      z-index: -9999 !important;
+      pointer-events: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+
+    /* 2. Ép body phải cuộn được */
+    body.modal-open, body.swal2-shown {
+      overflow: auto !important;
+      padding-right: 0 !important;
+    }
+
+    /* 3. Đưa Form đăng nhập lên tầng cao nhất vũ trụ */
+    .login-card {
+      position: relative !important;
+      z-index: 2147483647 !important; /* Max Int */
+      background-color: #fff !important; /* Nền trắng tuyệt đối */
+      box-shadow: 0 0 50px rgba(0,0,0,0.5) !important; /* Đổ bóng để thấy rõ nó nổi lên */
+    }
+</style>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -9,26 +40,30 @@
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body class="login-page">
+  
   <div class="login-card">
     <div class="text-center mb-3">
       <img src="images/dnse_logo.png" alt="DNSE Logo" style="height:60px;">
     </div>
     <h2>Đăng nhập hệ thống DNSE Meeting</h2>
+    
     <form id="loginForm">
       <div class="mb-3 input-group">
         <input type="text" id="username" class="form-control" placeholder="Username" required>
       </div>
       <div class="mb-3 input-group">
         <input type="password" id="password" class="form-control" placeholder="Password" required>
-        <span class="input-group-text" id="togglePassword">
+        <span class="input-group-text" id="togglePassword" style="cursor: pointer;">
           <i class="bi bi-eye"></i>
         </span>
       </div>
-      <button class="btn btn-primary">Đăng nhập</button>
-      <div id="loginError" class="text-danger"></div>
+      <button type="submit" class="btn btn-primary w-100">Đăng nhập</button>
+      
+      <div id="loginError" class="text-danger mt-2 text-center small"></div>
     </form>
-    <div class="slogan">
-      Quản lý lịch họp tập trung – An toàn – Hiệu quả
+
+    <div class="slogan mt-3">
+      Quản lý lịch họp tập trung - An toàn - Hiệu quả
     </div>
   </div>
 
@@ -36,43 +71,17 @@
     // Toggle show/hide password
     const togglePassword = document.getElementById('togglePassword');
     const passwordInput = document.getElementById('password');
-    togglePassword.addEventListener('click', () => {
-      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-      passwordInput.setAttribute('type', type);
-      togglePassword.innerHTML = type === 'password' ? '<i class="bi bi-eye"></i>' : '<i class="bi bi-eye-slash"></i>';
-    });
-
-    // Login form
-    const form = document.getElementById("loginForm");
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const username = document.getElementById("username").value;
-      const password = document.getElementById("password").value;
-
-      try {
-        const res = await fetch("/api/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password })
+    if(togglePassword && passwordInput){
+        togglePassword.addEventListener('click', () => {
+          const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+          passwordInput.setAttribute('type', type);
+          togglePassword.innerHTML = type === 'password' ? '<i class="bi bi-eye"></i>' : '<i class="bi bi-eye-slash"></i>';
         });
-        const data = await res.json();
-
-        if (!data.success) throw new Error(data.error || "Đăng nhập thất bại");
-
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("username", data.username);
-        localStorage.setItem("full_name", data.full_name);
-        localStorage.setItem("role", data.role);
-        localStorage.setItem("id", data.id);
-        localStorage.setItem("branch_id", data.branch_id);
-
-        window.location.href = data.role === "admin" ? "admin.html" : "index.html";
-      } catch (err) {
-        document.getElementById("loginError").textContent = err.message;
-      }
-    });
+    }
   </script>
-  <script src="login.js"></script>
+
+  <script src="js/login.js"></script>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

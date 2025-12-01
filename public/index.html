@@ -3,174 +3,197 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Hệ thống đặt phòng họp - DNSE</title>
+  <title>Trang chủ - DNSE Meeting</title>
+  
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css" />
- <!-- Bootstrap Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  
+  <link rel="stylesheet" href="css/style.css" />
+
 </head>
-<body>
-  <!-- Navbar -->
+
+<body class="bg-light"> 
+  
   <div id="navbar-placeholder"></div>
 
-
-  <header class="bg-primary text-white text-center py-5 mb-4">
+  <header class="hero-section text-center">
     <div class="container">
-      <h1>Hệ thống đặt phòng họp DNSE</h1>
-      <p class="lead">Đặt phòng nhanh, quản lý lịch tập trung, tích hợp dễ dàng.</p>
+      <div class="row justify-content-center">
+        <div class="col-lg-8">
+          <h1 class="display-4 hero-title mb-3">Hệ thống đặt phòng họp DNSE</h1>
+          <p class="lead mb-4 text-white-50">Giải pháp quản lý không gian làm việc chuyên nghiệp, tối ưu và hiệu quả.</p>
+          
+          <div class="d-flex justify-content-center gap-3">
+             <a href="booking.html" class="btn btn-warning btn-cta shadow text-dark">
+                <i class="bi bi-calendar-plus me-2"></i>Đặt phòng ngay
+             </a>
+             <a href="rooms.html" class="btn btn-outline-light btn-cta">
+                <i class="bi bi-eye me-2"></i>Xem danh sách phòng
+             </a>
+          </div>
+        </div>
+      </div>
     </div>
   </header>
 
-  <main class="container">
-    <div id="mainCarousel" class="carousel slide carousel-fade mx-auto mb-4" data-bs-ride="carousel" style="max-width: 700px;">
-      <div class="carousel-indicators">
-        <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="0" class="active" aria-current="true"></button>
-        <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="1"></button>
-        <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="2"></button>
-      </div>
-
-      <div class="carousel-inner rounded-4 shadow-lg">
-        <div class="carousel-item active">
-          <img src="images/ideal_room.jpg" class="d-block w-100" alt="Phòng họp lý tưởng">
-          <div class="carousel-caption bg-dark bg-opacity-50 rounded-3 p-3">
-            <h5 class="fw-bold text-white">Phòng họp lý tưởng</h5>
-            <p class="text-light mb-0">Không gian hiện đại, phù hợp mọi cuộc họp</p>
-          </div>
+  <main class="container" style="margin-top: -50px;"> 
+    
+    <div class="row g-4 mb-5">
+        <div class="col-md-4">
+            <div class="card feature-card shadow-sm h-100 p-3 text-center">
+                <div class="card-body">
+                    <div class="icon-box bg-primary bg-opacity-10 text-primary mx-auto">
+                        <i class="bi bi-building-check"></i>
+                    </div>
+                    <h5 class="fw-bold">Phòng họp đa dạng</h5>
+                    <p class="text-muted small">Hệ thống phòng họp hiện đại, đầy đủ trang thiết bị cho mọi quy mô.</p>
+                </div>
+            </div>
         </div>
-        <div class="carousel-item">
-          <img src="images/modern_room.png" class="d-block w-100" alt="Phòng hiện đại">
-          <div class="carousel-caption bg-dark bg-opacity-50 rounded-3 p-3">
-            <h5 class="fw-bold text-white">Phòng họp hiện đại</h5>
-            <p class="text-light mb-0">Trang thiết bị đầy đủ, tiện nghi</p>
-          </div>
+        <div class="col-md-4">
+            <div class="card feature-card shadow-sm h-100 p-3 text-center">
+                <div class="card-body">
+                    <div class="icon-box bg-success bg-opacity-10 text-success mx-auto">
+                        <i class="bi bi-lightning-charge"></i>
+                    </div>
+                    <h5 class="fw-bold">Đặt lịch siêu tốc</h5>
+                    <p class="text-muted small">Thao tác đơn giản chỉ với 3 bước, xác nhận tức thì qua hệ thống.</p>
+                </div>
+            </div>
         </div>
-        <div class="carousel-item">
-          <img src="images/open_room.jpg" class="d-block w-100" alt="Không gian mở">
-          <div class="carousel-caption bg-dark bg-opacity-50 rounded-3 p-3">
-            <h5 class="fw-bold text-white">Không gian mở</h5>
-            <p class="text-light mb-0">Tạo cảm hứng & kết nối tốt hơn</p>
-          </div>
+        <div class="col-md-4">
+            <div class="card feature-card shadow-sm h-100 p-3 text-center">
+                <div class="card-body">
+                    <div class="icon-box bg-info bg-opacity-10 text-info mx-auto">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </div>
+                    <h5 class="fw-bold">Quản lý hiệu quả</h5>
+                    <p class="text-muted small">Báo cáo thống kê chi tiết, tối ưu hóa hiệu suất sử dụng phòng.</p>
+                </div>
+            </div>
         </div>
-      </div>
-
-      <button class="carousel-control-prev" type="button" data-bs-target="#mainCarousel" data-bs-slide="prev">
-        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-        <span class="visually-hidden">Previous</span>
-      </button>
-      <button class="carousel-control-next" type="button" data-bs-target="#mainCarousel" data-bs-slide="next">
-        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-        <span class="visually-hidden">Next</span>
-      </button>
     </div>
 
-    <div class="text-center mb-5">
-      <a href="rooms.html" class="btn btn-primary btn-lg mx-2">Xem phòng họp</a>
-      <a href="booking.html" class="btn btn-success btn-lg mx-2">Đặt phòng ngay</a>
+    <div class="row mb-5 justify-content-center">
+        <div class="col-lg-10">
+            <div id="mainCarousel" class="carousel slide carousel-fade mx-auto" data-bs-ride="carousel">
+                <div class="carousel-indicators">
+                  <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="0" class="active"></button>
+                  <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="1"></button>
+                  <button type="button" data-bs-target="#mainCarousel" data-bs-slide-to="2"></button>
+                </div>
+          
+                <div class="carousel-inner">
+                  <div class="carousel-item active" data-bs-interval="3000">
+                    <img src="images/ideal_room.jpg" class="d-block w-100" alt="Phòng họp lý tưởng"> 
+                    <div class="carousel-caption d-none d-md-block">
+                        <div class="carousel-caption-pill">
+                            <h5 class="fw-bold text-white mb-0">Không gian chuyên nghiệp</h5>
+                        </div>
+                    </div>
+                  </div>
+
+                  <div class="carousel-item" data-bs-interval="3000">
+                    <img src="images/modern_room.png" class="d-block w-100" alt="Phòng hiện đại">
+                    <div class="carousel-caption d-none d-md-block">
+                        <div class="carousel-caption-pill">
+                            <h5 class="fw-bold text-white mb-0">Trang thiết bị hiện đại</h5>
+                        </div>
+                    </div>
+                  </div>
+
+                  <div class="carousel-item" data-bs-interval="3000">
+                    <img src="images/open_room.jpg" class="d-block w-100" alt="Không gian mở">
+                    <div class="carousel-caption d-none d-md-block">
+                        <div class="carousel-caption-pill">
+                            <h5 class="fw-bold text-white mb-0">Khơi nguồn sáng tạo</h5>
+                        </div>
+                    </div>
+                  </div>
+                </div>
+                          
+                <button class="carousel-control-prev" type="button" data-bs-target="#mainCarousel" data-bs-slide="prev">
+                  <span class="carousel-control-prev-icon"></span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#mainCarousel" data-bs-slide="next">
+                  <span class="carousel-control-next-icon"></span>
+                </button>
+              </div>
+        </div>
     </div>
 
-  </main>
-
-  <main class="container">
     <div class="row g-4 mb-5">
       <div class="col-md-6">
-        <div class="card shadow-sm h-100">
-          <div class="card-body">
-            <h3 class="card-title text-primary">
-              <i class="bi bi-calendar2-check"></i> Tính năng nổi bật
-            </h3>
-            <ul class="list-unstyled mt-3 mb-0">
-              <li>• Đặt phòng họp trực tuyến, xác nhận ngay</li>
-              <li>• Xem lịch phòng trực quan bằng lịch tháng</li>
-              <li>• Tránh trùng lịch, cảnh báo khi đặt trùng</li>
-              <li>• Quản lý nhân viên, phòng họp, báo cáo thống kê</li>
-              <li>• Giao diện thân thiện, hỗ trợ đa thiết bị</li>
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-header bg-white border-0 pt-4 px-4">
+             <h4 class="fw-bold text-primary"><i class="bi bi-star me-2"></i>Tại sao chọn chúng tôi?</h4>
+          </div>
+          <div class="card-body px-4 pb-4">
+            <ul class="list-group list-group-flush">
+              <li class="list-group-item border-0 ps-0"><i class="bi bi-check-circle-fill text-success me-2"></i>Tránh trùng lịch tuyệt đối với thuật toán thông minh</li>
+              <li class="list-group-item border-0 ps-0"><i class="bi bi-check-circle-fill text-success me-2"></i>Giao diện trực quan dạng lịch (Calendar View)</li>
+              <li class="list-group-item border-0 ps-0"><i class="bi bi-check-circle-fill text-success me-2"></i>Hỗ trợ trình ký văn bản điện tử tích hợp</li>
+              <li class="list-group-item border-0 ps-0"><i class="bi bi-check-circle-fill text-success me-2"></i>Phân quyền chi tiết (Admin, Manager, Staff)</li>
             </ul>
           </div>
         </div>
       </div>
+
       <div class="col-md-6">
-        <div class="card shadow-sm h-100">
-          <div class="card-body">
-            <h3 class="card-title text-success">
-              <i class="bi bi-lightbulb"></i> Hướng dẫn nhanh
-            </h3>
-            <ol class="mt-3 mb-0">
-              <li>Đăng nhập bằng tài khoản nhân viên</li>
-              <li>Chọn <b>Đặt phòng</b> để đặt lịch họp mới </li>
-              <li>Xem <b>Lịch họp</b> để theo dõi các lịch đã đặt </li>
-              <li>Quản lý phòng, nhân viên, báo cáo ở mục <b>Quản trị</b>
-              </li>
-            </ol>
+        <div class="card border-0 shadow-sm h-100 bg-primary text-white" style="background: linear-gradient(135deg, #0d6efd, #0a58ca);">
+          <div class="card-body p-4 d-flex flex-column justify-content-center">
+            <h4 class="fw-bold mb-4"><i class="bi bi-rocket-takeoff me-2"></i>Bắt đầu ngay</h4>
+            <div class="d-flex align-items-center mb-3">
+                <span class="badge bg-white text-primary rounded-circle p-2 me-3" style="width: 32px; height: 32px;">1</span>
+                <span>Đăng nhập tài khoản nhân viên</span>
+            </div>
+            <div class="d-flex align-items-center mb-3">
+                <span class="badge bg-white text-primary rounded-circle p-2 me-3" style="width: 32px; height: 32px;">2</span>
+                <span>Chọn <strong>Đặt phòng</strong> và điền thông tin</span>
+            </div>
+            <div class="d-flex align-items-center mb-3">
+                <span class="badge bg-white text-primary rounded-circle p-2 me-3" style="width: 32px; height: 32px;">3</span>
+                <span>Theo dõi trạng thái tại <strong>Lịch họp</strong></span>
+            </div>
+            <div class="mt-3 text-center">
+                <a href="booking.html" class="btn btn-light rounded-pill px-4 fw-bold">Thử ngay</a>
+            </div>
           </div>
         </div>
       </div>
     </div>
-    <div class="row justify-content-center">
-      <div class="col-md-8">
-        <div class="alert alert-info text-center shadow-sm">
-          <b>Mẹo:</b> Bạn có thể xem lịch phòng đã đặt trực quan trên trang <a href="booking.html">Đặt phòng</a> hoặc <a href="schedule.html">Lịch họp</a> để tránh trùng giờ!
+
+    <div class="alert alert-light border shadow-sm rounded-3 text-center d-flex align-items-center justify-content-center" role="alert">
+        <i class="bi bi-info-circle-fill text-info me-2 fs-5"></i>
+        <div>
+            Bạn muốn kiểm tra lịch trống? Truy cập <a href="schedule.html" class="fw-bold text-decoration-none">Lịch biểu</a> để xem toàn bộ lịch trong tháng.
         </div>
-      </div>
     </div>
+
   </main>
 
-  <footer class="bg-dark text-white text-center py-3 mt-5 d-flex justify-content-center align-items-center gap-2">
-    <img src="images/dnse_logo_notext.png" alt="DNSE Logo" style="height:25px; width:auto;">
-    <span>&copy; 2025 DNSE</span>
+  <footer class="bg-dark text-white py-4 mt-5">
+     <div class="container text-center">
+        <img src="images/dnse_logo_notext.png" alt="DNSE" style="height: 30px; opacity: 0.8;" class="mb-2">
+        <p class="small text-white-50 mb-0">&copy; 2025 Công ty Cổ phần Chứng khoán DNSE. All rights reserved.</p>
+     </div>
   </footer>
-    <!-- Scripts -->
+
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="js/navbar.js"></script> <!-- file navbar logic bạn vừa tạo -->
+  <script src="js/navbar.js"></script> 
+  
   <script>
     $(document).ready(function() {
-      // Tải navbar.html và ép trình duyệt không dùng cache cũ
       $("#navbar-placeholder").load("navbar.html?v=" + Math.random(), function(response, status, xhr) {
-        if (status == "error") {
-          console.log("Lỗi tải navbar: " + xhr.status + " " + xhr.statusText);
-        } else {
-          // Load xong HTML thì mới chạy logic JS
-          console.log("Navbar HTML loaded!");
-          if (typeof initNavbar === "function") {
-              initNavbar();
-          }
+        if (status != "error") {
+          console.log("Navbar loaded");
+          if (typeof initNavbar === "function") initNavbar();
         }
       });
     });
   </script>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    // Kiểm tra trạng thái đăng nhập
-    const token = localStorage.getItem("token");
-    const loginBtn = document.getElementById("loginBtn");
-    const accountMenu = document.getElementById("accountMenu");
-
-    // if (token) {
-    //   loginBtn.style.display = "none";
-    //   accountMenu.style.display = "block";
-    // } else {
-    //   loginBtn.style.display = "block";
-    //   accountMenu.style.display = "none";
-    // }
-
-  //   // ✅ Xử lý logout
-  //   document.getElementById("logoutBtn").addEventListener("click", () => {
-  //     // Xóa toàn bộ thông tin phiên cũ
-  //     localStorage.clear();
-  //     sessionStorage.clear();
-
-  //     // Ẩn menu tài khoản, hiện lại nút login
-  //     loginBtn.style.display = "block";
-  //     accountMenu.style.display = "none";
-
-  //     // ✅ Xóa thông báo còn sót lại (nếu có)
-  //     const notifContainer = document.getElementById("notificationContainer");
-  //     if (notifContainer) notifContainer.innerHTML = "";
-
-  //     // 👉 Chuyển hướng về trang đăng nhập (chuẩn UX)
-  //     window.location.href = "login.html";
-  //   });
-  </script>
-
   <script src="js/main.js"></script>
 </body>
 </html>
