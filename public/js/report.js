@@ -290,13 +290,23 @@ async function exportTableToPDF({ tableEl, title = "Báo cáo", creator = "Admin
   // Add signature section after table (on last page)
   const finalY = doc.lastAutoTable ? doc.lastAutoTable.finalY : 100;
   const signatureY = finalY + 10;
-  
+    
+    // Date + Location
+  const now = new Date();
+  const day = now.getDate().toString().padStart(2, "0");
+  const month = (now.getMonth() + 1).toString().padStart(2, "0");
+  const year = now.getFullYear();
+
+  doc.setFontSize(9);
+  doc.setFont("NotoSans", "normal");
+  doc.text(`Hà Nội, ngày ${day} tháng ${month} năm ${year}`, pageWidth - marginRight - 63, signatureY);
+
   doc.setFontSize(9);
   doc.setFont("NotoSans", "bold");
-  doc.text("Người lập báo cáo", pageWidth - marginRight - 60, signatureY);
+  doc.text("Người lập báo cáo", pageWidth - marginRight - 60, signatureY + 15);
   
   doc.setFont("NotoSans", "normal");
-  doc.text(creatorName, pageWidth - marginRight - 60, signatureY + 10);
+  doc.text(creatorName, pageWidth - marginRight - 60, signatureY + 25);
   doc.save(`${title.replace(/\s+/g, '_')}.pdf`);
 }
 

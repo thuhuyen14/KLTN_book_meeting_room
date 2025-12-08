@@ -8,6 +8,24 @@ let CURRENT_USER_ID = null;
 
 // Chạy sau khi navbar HTML đã được load vào div placeholder
 function initNavbar() {
+    // Nếu truy cập vào root "/" thì ép về index.html
+  if (window.location.pathname === "/" || window.location.pathname === "") {
+    window.location.replace("index.html");
+  }
+
+  // Kiểm tra nếu đang có màn đen mà không có modal nào hiển thị -> Xóa ngay
+  const backdrops = document.querySelectorAll('.modal-backdrop');
+  if (backdrops.length > 0) {
+      // Xóa tất cả các thẻ div màn đen
+      backdrops.forEach(el => el.remove());
+      
+      // Trả lại thanh cuộn cho body
+      document.body.classList.remove('modal-open');
+      document.body.style.overflow = '';
+      document.body.style.paddingRight = '';
+      
+      console.log("Đã dọn dẹp lớp overlay bị kẹt!");
+  }
   // 1. Lấy thông tin user từ localStorage
   const token = localStorage.getItem("token");
   const role = localStorage.getItem("role");
@@ -20,19 +38,59 @@ function initNavbar() {
 
   if (!userMenu) return;
 
-  // 2. Logic phân quyền Admin
-  const isAdmin = role?.toLowerCase() === 'administrator';
-  const currentPage = window.location.pathname.split("/").pop();
-  const adminPages = ["admin.html", "report.html"];
+// 2. Logic phân quyền theo role
+const currentPage = window.location.pathname.split("/").pop();
+if (!currentPage) currentPage = "index.html";
+const roleNorm = role?.toLowerCase() || "user";
 
-  if (!isAdmin) {
-    document.querySelectorAll(".admin-only").forEach(tab => tab.style.display = "none");
-    if (adminPages.includes(currentPage)) {
-      alert("Bạn không có quyền truy cập trang này");
-      window.location.href = "index.html";
-      return;
-    }
-  }
+// Các trang theo role
+const USER_PAGES = [
+  "index.html","booking.html","rooms.html","schedule.html",
+  "documents.html","templates.html","users.html", "profile.html"
+];
+
+const ADMIN_PAGES = [
+  ...USER_PAGES,
+  "admin.html"
+];
+
+const MANAGER_PAGES = [
+  ...USER_PAGES,
+  "report.html","analytic.html"
+];
+
+// Map role -> allowed pages
+const ROLE_PAGES = {
+  "administrator": ADMIN_PAGES,
+  "manager": MANAGER_PAGES,
+  "user": USER_PAGES
+};
+
+// Nếu role không hợp lệ thì coi như user
+const allowedPages = ROLE_PAGES[roleNorm] || USER_PAGES;
+
+// Redirect nếu truy cập trang không hợp lệ
+if (!allowedPages.includes(currentPage)) {
+  alert("Bạn không có quyền truy cập trang này");
+  window.location.href = "index.html";
+  return;
+}
+
+// Ẩn tab theo role  
+function hideTabs(selector) {
+  document.querySelectorAll(selector).forEach(el => el.style.display = "none");
+}
+
+// Ẩn tab admin-only nếu không phải admin
+if (roleNorm !== "administrator") {
+  hideTabs(".admin-only");
+}
+
+// Ẩn tab manager-only nếu không phải manager
+if (roleNorm !== "manager") {
+  hideTabs(".manager-only");
+}
+
 
   // 3. Render Avatar & Menu User
   function normalizeAvatar(url, name) {

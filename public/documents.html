@@ -79,6 +79,11 @@
             <select class="form-select" id="bookingId" name="booking_id"></select>
           </div>
 
+          <div class="mb-3">
+            <label class="form-label">Người ký</label>
+            <select id="signers" name="signers" multiple class="form-select"></select>
+          </div>
+          
           <!-- TEMPLATE -->
           <div class="mb-3">
             <label class="form-label">Chọn mẫu văn bản (tùy chọn)</label>
@@ -100,10 +105,6 @@
             <input type="file" class="form-control" id="docFile" name="file" accept=".pdf,.doc,.docx">
           </div>
 
-          <div class="mb-3">
-            <label class="form-label">Người ký</label>
-            <select id="signers" name="signers" multiple class="form-select"></select>
-          </div>
 
           <!-- <button type="submit" class="btn btn-primary w-100">
             <i class="bi bi-upload"></i> Lưu và trình ký
@@ -215,7 +216,7 @@
       });
     });
   </script>
-  <script>
+  <!-- <script>
   // Khi chọn template → load nội dung
   $("#templateId").on("change", async function () {
     const id = $(this).val();
@@ -237,7 +238,7 @@
       console.error("Không load được template", err);
     }
   });
-</script>
+</script> -->
 
   <!-- Select2 -->
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
