@@ -203,30 +203,63 @@ document.addEventListener('DOMContentLoaded', async () => {
         headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' },
         events: async (info, successCallback, failureCallback) => {
             try {
+                const currentUserId = localStorage.getItem('id'); // Lấy ID của bạn
+                
                 const res = await fetch('/api/bookings');
                 if (!res.ok) throw new Error('Không tải được lịch');
                 const data = await res.json();
-                const events = data.map(b => ({
-                    id: b.id,
-                    title: b.title,
-                    start: b.start_time,
-                    end: b.end_time,
-                    backgroundColor: '#4e73df',
-                    borderColor: '#4e73df',
-                    extendedProps: { room: b.room_name, bookedBy: b.booked_by }
-                }));
+                
+                const events = data.map(b => {
+                    // Kiểm tra xem đây có phải lịch của mình không
+                    const isMine = String(b.user_id) === String(currentUserId);
+                    
+                    // Cấu hình màu sắc
+                    // Của mình: Màu xanh dương (#4e73df)
+                    // Của người khác: Màu xám (#858796)
+                    const color = isMine ? '#4e73df' : '#858796';
+                    
+                    return {
+                        id: b.id,
+                        title: b.title,
+                        start: b.start_time,
+                        end: b.end_time,
+                        backgroundColor: color, 
+                        borderColor: color,
+                        // Thêm class để CSS thêm nếu cần
+                        classNames: isMine ? ['my-event'] : ['other-event'], 
+                        extendedProps: { 
+                            room: b.room_name, 
+                            bookedBy: b.booked_by,
+                            isMine: isMine // Lưu lại để dùng cho Tooltip
+                        }
+                    };
+                });
                 successCallback(events);
             } catch (err) {
                 console.error(err);
                 failureCallback(err);
             }
         },
-        eventDidMount: info => {
-            new bootstrap.Tooltip(info.el, {
-                title: `${info.event.title}\n - ${info.event.extendedProps.room}\n\n - ${info.event.start.toLocaleString()}\n - ${info.event.end.toLocaleString()}`,
-                placement: 'top', trigger: 'hover', container: 'body'
-            });
-        },
+
+            eventDidMount: info => {
+                // Tùy chỉnh Tooltip thông minh hơn
+                const props = info.event.extendedProps;
+                const ownerText = props.isMine ? '(Của bạn)' : `(Bởi: ${props.bookedBy})`;
+                
+                // Thêm icon người nếu là của mình (Visual cue)
+                if (props.isMine) {
+                    const icon = document.createElement('i');
+                    icon.className = 'bi bi-person-fill me-1 text-success';
+                    info.el.querySelector('.fc-event-title').prepend(icon);
+                }
+
+                new bootstrap.Tooltip(info.el, {
+                    title: `${info.event.title} ${props.isMine ? '⭐' : ''}\n Phòng: ${props.room}\n ${ownerText}\n ${info.event.start.toLocaleTimeString().slice(0,5)} - ${info.event.end.toLocaleTimeString().slice(0,5)}`,
+                    placement: 'top', 
+                    trigger: 'hover', 
+                    container: 'body'
+                });
+            },
         eventClick: info => {
             const modalEl = document.getElementById('eventModal');
             document.getElementById('modalTitle').textContent = info.event.title;

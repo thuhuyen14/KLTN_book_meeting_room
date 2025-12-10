@@ -490,3 +490,34 @@ th.sortable.sorted-desc::after {
 .doc-title { font-weight: 600; color: #0d6efd; text-decoration: none; }
 .doc-title:hover { text-decoration: underline; }
 .btn-action-group .btn { padding: 4px 8px; font-size: 0.85rem; }
+
+
+/* Custom Scrollbar cho lịch ngang */
+#personalSchedule::-webkit-scrollbar { height: 8px; }
+#personalSchedule::-webkit-scrollbar-track { background: #f1f1f1; }
+#personalSchedule::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+#personalSchedule::-webkit-scrollbar-thumb:hover { background: #aaa; }
+
+/* Style cho sự kiện trong lịch tuần */
+.personal-event {
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-left: 3px solid rgba(0,0,0,0.2);
+}
+.personal-event:hover {
+    transform: scale(1.02);
+    z-index: 100 !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Nút tròn Lập văn bản */
+.btn-circle-action {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+}
+.btn-circle-action:hover {
+    transform: rotate(15deg) scale(1.1);
+}

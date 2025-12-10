@@ -9,6 +9,7 @@ async function api(path, opts = {}) {
 let allTeams = [];
 let allParticipants = [];
 let teamSelectTom, participantSelectTom;
+let currentWeekStart = new Date();
 
 // ==========================================
 // 🛠️ CÁC HÀM HELPER (Xử lý ngày tháng & Logic)
@@ -182,86 +183,102 @@ async function renderBookings() {
 
 // ==========================================
 // 📆 RENDER LỊCH TUẦN (WEEKLY GRID) - CLICK ĐỂ MỞ MODAL
-// ==========================================
 async function renderWeeklySchedule() {
   const userId = localStorage.getItem('id');
   const container = document.getElementById("personalSchedule");
+  const label = document.getElementById("currentWeekLabel");
+
   if (!userId || !container) return;
 
-  container.innerHTML = '<div class="p-3">Đang tải lịch cá nhân...</div>';
+  container.innerHTML = '<div class="d-flex justify-content-center align-items-center h-100 w-100 text-muted"><div class="spinner-border spinner-border-sm me-2"></div> Đang tải lịch tuần...</div>';
 
   try {
-    const today = new Date();
-    // Lấy nguyên tháng để hiển thị cho rộng
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    // 1. Tính toán ngày (Giữ nguyên logic chuẩn)
+    const curr = new Date(currentWeekStart);
+    const day = curr.getDay();
+    const diffToMon = curr.getDate() - day + (day === 0 ? -6 : 1); 
+    
+    const startOfWeek = new Date(curr.setDate(diffToMon));
+    startOfWeek.setHours(0, 0, 0, 0);
 
-    const bookings = await api(`/bookings/personal/${userId}?start=${start.toISOString()}&end=${end.toISOString()}`);
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
 
-    // Cấu hình vẽ lịch
-    const dayStart = 7; // Từ 7h sáng
-    const dayEnd = 19;  // Đến 19h tối
-    const containerHeight = 600;
+    if (label) {
+        label.textContent = `${startOfWeek.getDate()}/${startOfWeek.getMonth()+1} - ${endOfWeek.getDate()}/${endOfWeek.getMonth()+1}/${endOfWeek.getFullYear()}`;
+    }
+
+    // 2. Gọi API
+    const bookings = await api(`/bookings/personal/${userId}?start=${startOfWeek.toISOString()}&end=${endOfWeek.toISOString()}`);
+
+    // Cấu hình khung lịch
+    const dayStart = 7; 
+    const dayEnd = 19;
+    const containerHeight = 500;
     const hourHeight = containerHeight / (dayEnd - dayStart);
 
-    // CSS Container
+    container.innerHTML = '';
     Object.assign(container.style, {
         overflowX: "auto", whiteSpace: "nowrap", position: "relative",
         height: containerHeight + "px", border: "1px solid #e0e0e0",
-        display: "flex", background: "#fff", borderRadius: "8px"
+        display: "flex", background: "#fff", borderRadius: "8px",
+        // ✅ FIX LỖI SCROLL: Dùng background để vẽ dòng kẻ thay vì tạo div
+        // Vẽ dòng kẻ ngang trùng với chiều cao mỗi giờ
+        backgroundImage: "linear-gradient(#f1f1f1 1px, transparent 1px)",
+        backgroundSize: `100% ${hourHeight}px` 
     });
 
-    container.innerHTML = ''; // Clear loading
-
-    // 1. Vẽ cột giờ (Trục tung)
+    // 3. Vẽ cột giờ (Trục tung)
     const hourLabels = document.createElement("div");
     Object.assign(hourLabels.style, {
-        position: "sticky", left: "0", top: "0", height: "100%", width: "60px",
+        position: "sticky", left: "0", top: "0", height: "100%", width: "50px",
         background: "#f8f9fa", borderRight: "1px solid #ddd", zIndex: "20", flexShrink: 0
     });
 
     for (let h = dayStart; h <= dayEnd; h++) {
-      const label = document.createElement("div");
-      Object.assign(label.style, {
-          position: "absolute", top: (h - dayStart) * hourHeight - 10 + "px",
-          width: "100%", textAlign: "center", fontSize: "0.75rem", color: "#666", fontWeight: "bold"
+      const l = document.createElement("div");
+      // Căn chỉnh label nằm giữa dòng kẻ
+      Object.assign(l.style, { 
+          position: "absolute", top: (h-dayStart)*hourHeight - 8 + "px", 
+          width: "100%", textAlign: "center", fontSize:"0.7rem", color:"#999", fontWeight:"600" 
       });
-      label.textContent = `${h}:00`;
-      hourLabels.appendChild(label);
-      
-      // Kẻ dòng ngang
-      const line = document.createElement("div");
-      Object.assign(line.style, {
-         position: "absolute", top: (h - dayStart) * hourHeight + "px",
-         left: "60px", right: "0", borderTop: "1px solid #f0f0f0", width: "3000px", zIndex: "0", pointerEvents: "none"
-      });
-      container.appendChild(line);
+      l.textContent = `${h}:00`;
+      hourLabels.appendChild(l);
+      // ❌ ĐÃ XÓA đoạn code tạo div line ở đây -> Hết lỗi scroll
     }
     container.appendChild(hourLabels);
 
-    // 2. Vẽ các cột ngày (Trục hoành)
+    // 4. Vẽ 7 cột ngày
     const daysMap = new Map();
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    let loopDay = new Date(startOfWeek); 
+
+    for (let i = 0; i < 7; i++) {
       const dayDiv = document.createElement("div");
-      const isToday = d.toDateString() === new Date().toDateString();
+      const isToday = loopDay.toDateString() === new Date().toDateString();
       
       Object.assign(dayDiv.style, {
-          flex: "0 0 160px", borderRight: "1px solid #eee", position: "relative", height: "100%",
-          backgroundColor: isToday ? "#fff8e1" : "transparent" // Highlight hôm nay
+          flex: "1", minWidth: "130px", borderRight: "1px solid #eee", position: "relative", height: "100%",
+          // Nếu là hôm nay thì tô màu nền nhẹ, nếu không thì trong suốt để thấy dòng kẻ background
+          backgroundColor: isToday ? "rgba(255, 248, 225, 0.5)" : "transparent"
       });
 
-      // Header ngày
-      const header = document.createElement("div");
-      header.className = `text-center py-2 border-bottom small ${isToday ? 'text-primary fw-bold' : 'text-muted'}`;
-      header.style.background = isToday ? "#ffecb3" : "#f8f9fa";
-      header.innerHTML = `${d.toLocaleDateString('vi-VN', { weekday: 'short' })}<br>${d.getDate()}/${d.getMonth()+1}`;
+      const dayName = loopDay.toLocaleDateString('vi-VN', { weekday: 'short' });
+      const dateStr = `${loopDay.getDate()}/${loopDay.getMonth()+1}`;
       
-      dayDiv.appendChild(header);
-      daysMap.set(d.toDateString(), dayDiv);
+      dayDiv.innerHTML = `
+        <div class="text-center py-2 border-bottom small ${isToday ? 'text-primary fw-bold' : 'text-muted'}" style="background:${isToday ? "#ffecb3" : "#f8f9fa"}; position: sticky; top: 0; z-index: 5;">
+            <span class="d-block text-uppercase" style="font-size:10px">${dayName}</span>
+            <span style="font-size:14px">${dateStr}</span>
+        </div>
+      `;
+      
       container.appendChild(dayDiv);
+      daysMap.set(loopDay.toDateString(), dayDiv);
+      loopDay.setDate(loopDay.getDate() + 1);
     }
 
-    // 3. Vẽ sự kiện lên lịch
+    // 5. Vẽ sự kiện
     bookings.forEach(b => {
       const startTime = new Date(b.start_time);
       const endTime = new Date(b.end_time);
@@ -271,47 +288,46 @@ async function renderWeeklySchedule() {
 
       const startHour = startTime.getHours() + startTime.getMinutes() / 60;
       const endHour = endTime.getHours() + endTime.getMinutes() / 60;
+      
+      // Tính toán vị trí (thêm chút padding top để không đè lên header ngày)
+      const headerOffset = 0; 
+      const top = Math.max(0, (startHour - dayStart) * hourHeight) + headerOffset;
+      const height = Math.max((endHour - startHour) * hourHeight, 25);
 
-      // Tính toán vị trí top/height
-      const top = (startHour - dayStart) * hourHeight;
-      const height = (endHour - startHour) * hourHeight;
-
-      // ✅ LOGIC MÀU SẮC (SỬA LẠI Ở ĐÂY LÀ ĐÚNG)
       const isOwner = String(b.user_id) === String(userId);
-      const bgClass = isOwner ? "#3b82f6" : "#6c757d"; // Xanh hoặc Xám
+      const bgClass = isOwner ? "#3b82f6" : "#6c757d"; 
       const borderClass = isOwner ? "#1d4ed8" : "#495057";
+
       const eventDiv = document.createElement("div");
-      eventDiv.className = "personal-event text-white rounded p-1 small";
+      eventDiv.className = "personal-event text-white rounded p-1 small shadow-sm";
       Object.assign(eventDiv.style, {
-          position: "absolute", top: top + "px", height: Math.max(height, 25) + "px",
-          left: "4px", right: "4px", 
-          background: bgClass, overflow: "hidden", zIndex: "10"
+          position: "absolute", top: top + "px", height: height + "px",
+          left: "2px", right: "2px", 
+          background: bgClass,
+          overflow: "hidden", zIndex: "10",
+          fontSize: "11px", lineHeight: "1.2", 
+          borderLeft: `3px solid ${borderClass}`,
+          cursor: "pointer",
+          opacity: "0.9"
       });
 
-      // Nội dung thẻ
       eventDiv.innerHTML = `
         <div class="fw-bold text-truncate">${b.title}</div>
-        <div class="text-truncate" style="font-size:10px; opacity:0.9">${b.room_name}</div>
+        <div class="text-truncate opacity-75" style="font-size:10px">${b.room_name}</div>
       `;
       
-      // Sự kiện click -> Mở Modal (để xem chi tiết hoặc tạo văn bản)
-      eventDiv.onclick = () => openEditModal(b.id);
-      
-      // Tooltip
-      new bootstrap.Tooltip(eventDiv, {
-         title: `${b.title} (${b.room_name})`, placement: 'top'
-      });
+      eventDiv.onclick = (e) => { e.stopPropagation(); openEditModal(b.id); };
+      new bootstrap.Tooltip(eventDiv, { title: `${b.title}\n - phòng ${b.room_name}`, placement: 'auto' });
 
       dayEl.appendChild(eventDiv);
     });
 
   } catch (err) {
-    console.error("Lỗi render lịch tuần:", err);
+    console.error("Lỗi render:", err);
+    container.innerHTML = '<div class="alert alert-danger m-3">Lỗi tải dữ liệu.</div>';
   }
 }
 
-// ==========================================
-// ✏️ MODAL EDIT & ACTIONS
 // ==========================================
 
 // ✏️ MODAL EDIT & ACTIONS (ĐÃ THÊM LOGIC PHÂN QUYỀN)
@@ -449,7 +465,18 @@ document.getElementById('editBookingForm')?.addEventListener('submit', async (e)
 // Sự kiện đổi filter
 document.getElementById('viewDate').addEventListener('change', renderBookings);
 document.getElementById('roomFilter').addEventListener('change', renderBookings);
+// Biến toàn cục (nếu chưa có)
+// let currentWeekStart = new Date(); 
 
+document.getElementById('prevWeek')?.addEventListener('click', () => {
+    currentWeekStart.setDate(currentWeekStart.getDate() - 7); // Lùi 7 ngày
+    renderWeeklySchedule(); 
+});
+
+document.getElementById('nextWeek')?.addEventListener('click', () => {
+    currentWeekStart.setDate(currentWeekStart.getDate() + 7); // Tiến 7 ngày
+    renderWeeklySchedule(); 
+});
 // Khởi chạy
 (async () => {
   await load();
