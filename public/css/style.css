@@ -456,3 +456,37 @@ th.sortable.sorted-desc::after {
 .btn-cta:hover {
   transform: scale(1.05);
 }
+/* --- Status Badges --- */
+.badge-status { padding: 8px 12px; border-radius: 20px; font-weight: 500; font-size: 0.85rem; }
+.status-draft { background-color: #e9ecef; color: #495057; }
+.status-pending { background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
+.status-processing { background-color: #cff4fc; color: #055160; border: 1px solid #b6effb; }
+.status-approved { background-color: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
+.status-rejected { background-color: #f8d7da; color: #842029; border: 1px solid #f5c2c7; }
+
+/* --- Timeline Signers (Luồng ký dọc) --- */
+.timeline { position: relative; padding-left: 20px; margin-top: 10px; }
+.timeline::before {
+    content: ''; position: absolute; top: 0; bottom: 0; left: 6px; width: 2px; background: #e9ecef;
+}
+.timeline-item { position: relative; margin-bottom: 25px; }
+.timeline-marker {
+    position: absolute; left: -21px; top: 0; width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; z-index: 1;
+}
+.timeline-marker.pending { background: #ffc107; box-shadow: 0 0 0 3px #fff3cd; }
+.timeline-marker.active { background: #0dcaf0; box-shadow: 0 0 0 3px #cff4fc; } /* Đang đến lượt */
+.timeline-marker.success { background: #198754; box-shadow: 0 0 0 3px #d1e7dd; }
+.timeline-marker.danger { background: #dc3545; box-shadow: 0 0 0 3px #f8d7da; }
+.timeline-marker.waiting { background: #adb5bd; }
+
+.timeline-content { background: #fff; padding: 10px 15px; border-radius: 8px; border: 1px solid #eee; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+.timeline-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.timeline-title { font-weight: 600; color: #333; margin: 0; }
+.timeline-time { font-size: 0.8rem; color: #888; }
+.timeline-status { font-size: 0.85rem; }
+
+/* --- Document Table --- */
+.table-hover tbody tr:hover { background-color: #f8f9fa; }
+.doc-title { font-weight: 600; color: #0d6efd; text-decoration: none; }
+.doc-title:hover { text-decoration: underline; }
+.btn-action-group .btn { padding: 4px 8px; font-size: 0.85rem; }

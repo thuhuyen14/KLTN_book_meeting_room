@@ -45,6 +45,7 @@ $(async function () {
 
   await Promise.all([loadBookings(), loadSigners(), loadTemplates()]);
   await loadDocuments();
+  handleOpenFromBooking(); // xử lý mở modal tạo văn bản từ cuộc họp
 });
 
 // preview helper
@@ -83,28 +84,127 @@ async function loadTemplates(){
   try{ const r = await fetch(API.templatesList); if (!r.ok) throw r; const d = await r.json(); const $t = $('#templateId'); $t.empty().append('<option value="">-- Không dùng mẫu --</option>'); d.forEach(t=> $t.append(new Option(t.name,t.id))); $t.trigger('change'); }
   catch(e){ console.error('loadTemplates', e); }
 }
+// js/documents.js
+
 async function loadDocuments(){
-  try{ const r = await fetch(API.documentsList); if (!r.ok) throw r; const d = await r.json(); renderDocumentsTable(d||[]); }
-  catch(e){ console.error('loadDocuments', e); $('#documentsTable').html('<tr><td colspan="6" class="text-center text-muted">Không tải được danh sách văn bản</td></tr>'); }
+  try{ 
+    const me = curUser(); // Lấy ID user từ localStorage
+    if (!me) { 
+        console.warn("Chưa đăng nhập, không thể tải văn bản."); 
+        return; 
+    }
+
+    // ✅ QUAN TRỌNG: Phải truyền user_id lên để Server biết đường mà lọc
+    const url = `${API.documentsList}?user_id=${me}`;
+    
+    const r = await fetch(url); 
+    if (!r.ok) throw r; 
+    const d = await r.json(); 
+    
+    renderDocumentsTable(d||[]); 
+  }
+  catch(e){ 
+    console.error('loadDocuments', e); 
+    $('#documentsTable').html('<tr><td colspan="6" class="text-center text-muted">Không thể tải danh sách văn bản</td></tr>'); 
+  }
 }
 
 // render
-function renderDocumentsTable(items){
-  const me = curUser();
-  if (!items || !items.length) { $('#documentsTable').html('<tr><td colspan="6" class="text-center text-muted">Chưa có văn bản</td></tr>'); return; }
-  const rows = items.map((d,i)=> {
-    const canEdit = String(d.created_by)===String(me) && d.status==='Nháp';
-    return `<tr>
-      <td>${i+1}</td>
-      <td><button class="btn btn-link p-0 preview-btn" data-path="${d.file_path||''}" data-id="${d.id}">${esc(d.title||'')}</button></td>
-      <td>${esc(d.booking_title||'-')}</td>
-      <td class="doc-status" data-id="${d.id}">${esc(d.status||'')}</td>
-      <td>${esc(d.creator_name||'—')}</td>
-      <td><button class="btn btn-sm btn-outline-primary view-signers-btn" data-id="${d.id}">Xem</button>${canEdit?` <button class="btn btn-sm btn-outline-warning edit-doc-btn ms-1" data-id="${d.id}"><i class="bi bi-pencil"></i> Sửa</button> <button class="btn btn-sm btn-outline-success submit-draft-btn ms-1" data-id="${d.id}"><i class="bi bi-send"></i> Trình ký</button>`:''}</td>
-    </tr>`; }).join('');
-  $('#documentsTable').html(rows);
+// Helper render status
+function getStatusBadge(status) {
+    let cls = 'status-draft';
+    let icon = 'bi-circle';
+    if (status === 'Đang trình ký') { cls = 'status-processing'; icon = 'bi-hourglass-split'; }
+    else if (status === 'Đã duyệt') { cls = 'status-approved'; icon = 'bi-check-circle-fill'; }
+    else if (status === 'Từ chối') { cls = 'status-rejected'; icon = 'bi-x-circle-fill'; }
+    else if (status === 'Chờ trình ký') { cls = 'status-pending'; icon = 'bi-clock'; }
+    return `<span class="badge badge-status ${cls}"><i class="bi ${icon}"></i> ${esc(status)}</span>`;
 }
 
+// Hàm render chính (Đã tích hợp DataTable)
+function renderDocumentsTable(items){
+  const me = curUser();
+  const $table = $('#documentsTable').closest('table'); // Tìm thẻ <table> chứa tbody
+
+  // 1. Hủy DataTable cũ nếu đã tồn tại (để tránh lỗi khi reload dữ liệu)
+  if ($.fn.DataTable.isDataTable($table)) {
+      $table.DataTable().destroy();
+  }
+
+  // 2. Kiểm tra dữ liệu
+  if (!items || !items.length) { 
+      $('#documentsTable').html(''); // Xóa trắng body
+      // Dù không có dữ liệu vẫn phải khởi tạo DataTable để nó hiện dòng "No data available" chuẩn
+      $table.DataTable({ 
+          "language": { "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/vi.json" },
+          "searching": false, "paging": false, "info": false
+      });
+      return; 
+  }
+
+  // 3. Render HTML (Logic hiển thị đẹp)
+  const rows = items.map((d,i)=> {
+    const canEdit = String(d.created_by)===String(me) && d.status==='Nháp';
+    const statusBadge = getStatusBadge(d.status);
+    
+    // Xử lý hiển thị cuộc họp
+    // Tìm đoạn bookingHtml cũ và thay bằng đoạn này
+    let bookingHtml = '<span class="text-muted small">Không gắn cuộc họp</span>';
+    if(d.booking_title) {
+        bookingHtml = `
+            <div class="d-flex align-items-center">
+                <div class="bg-light rounded p-2 me-2 text-primary">
+                    <i class="bi bi-calendar-event"></i>
+                </div>
+                <div>
+                    <a href="javascript:void(0)" class="fw-bold small text-decoration-none view-booking-btn" data-id="${d.booking_id}">
+                        ${esc(d.booking_title)}
+                    </a>
+                    <div class="text-muted smaller" style="font-size:11px">
+                        <i class="bi bi-info-circle"></i> Bấm để xem chi tiết
+                    </div>
+                </div>
+            </div>`;
+    }
+    // Các nút thao tác
+    let actions = `<button class="btn btn-sm btn-outline-secondary view-signers-btn" data-id="${d.id}" title="Xem luồng ký"><i class="bi bi-diagram-3"></i></button>`;
+    
+    if (canEdit) {
+        actions += `
+            <button class="btn btn-sm btn-outline-warning edit-doc-btn ms-1" data-id="${d.id}" title="Sửa"><i class="bi bi-pencil"></i></button>
+            <button class="btn btn-sm btn-outline-primary submit-draft-btn ms-1" data-id="${d.id}" title="Trình ký ngay"><i class="bi bi-send"></i></button>
+        `;
+    }
+
+    // Tiêu đề
+    const titleHtml = `<a href="javascript:void(0)" class="fw-bold text-decoration-none preview-btn" data-path="${d.file_path||''}" data-id="${d.id}">${esc(d.title||'Không tiêu đề')}</a>`;
+
+    // Trả về row HTML
+    return `<tr>
+      <td class="text-center">${i+1}</td>
+      <td>${titleHtml}</td>
+      <td>${bookingHtml}</td>
+      <td class="text-center">${statusBadge}</td>
+      <td><small>${esc(d.creator_name||'—')}</small></td>
+      <td class="text-nowrap">${actions}</td>
+    </tr>`; 
+  }).join('');
+  
+  // 4. Đẩy HTML vào bảng
+  $('#documentsTable').html(rows);
+
+  // 5. KÍCH HOẠT DATATABLE
+  $table.DataTable({
+      "language": {
+            "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/vi.json"
+      },
+      "pageLength": 10,
+      "lengthMenu": [[5, 10, 25, 50, -1], [5, 10, 25, 50, "Tất cả"]],
+      "ordering": false, // Tắt tự sắp xếp của JS để tôn trọng thứ tự từ SQL (Mới nhất lên đầu)
+      "destroy": true,   // Đảm bảo không lỗi nếu init lại
+      "autoWidth": false // Để Bootstrap tự căn chỉnh cột
+  });
+}
 // create document
 async function handleCreateDocument(shouldSubmit=false){
   const form = $('#createDocForm')[0]; const fd = new FormData(form);
@@ -128,7 +228,36 @@ async function handleCreateDocument(shouldSubmit=false){
     await loadDocuments();
   } catch(e){ console.error('createDocument', e); alert('Lỗi khi tạo văn bản: '+(e.message||e)); }
 }
+// ✅ HÀM MỚI: Xử lý khi được chuyển từ trang Booking sang
+function handleOpenFromBooking() {
+    // Lấy tham số trên URL (ví dụ: ?create_from_booking=105)
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookingId = urlParams.get('create_from_booking');
 
+    if (bookingId) {
+        console.log("Phát hiện yêu cầu tạo văn bản từ cuộc họp ID:", bookingId);
+
+        const $bookingSelect = $('#bookingId'); // Dropdown chọn cuộc họp
+
+        // Kiểm tra xem ID cuộc họp có tồn tại trong danh sách vừa tải không
+        if ($bookingSelect.find(`option[value="${bookingId}"]`).length) {
+            
+            // 1. Set giá trị cho Select2
+            $bookingSelect.val(bookingId).trigger('change');
+
+            // 2. Mở Modal "Tạo mới văn bản"
+            const modal = new bootstrap.Modal(document.getElementById('createDocModal'));
+            modal.show();
+
+            // 3. (Tùy chọn) Xóa tham số trên URL đi cho đẹp (để F5 không bị mở lại)
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+            
+        } else {
+            alert('Cuộc họp này không hợp lệ hoặc đã quá hạn để lập văn bản.');
+        }
+    }
+}
 // submit draft
 $(document).on('click', '.submit-draft-btn', async function(){
   const docId = $(this).data('id'); if (!confirm('Xác nhận trình ký văn bản này? Sau khi trình ký sẽ không thể chỉnh sửa.')) return;
@@ -139,63 +268,94 @@ $(document).on('click', '.submit-draft-btn', async function(){
 $(document).on('click', '.view-signers-btn', async function(){
   const docId = $(this).data('id');
   const $body = $('#modal-content');
-  $body.html('<div class="text-center text-muted">Đang tải...</div>');
+  $body.html('<div class="d-flex justify-content-center py-4"><div class="spinner-border text-primary" role="status"></div></div>');
+  
   try {
     const r = await fetch(API.getSigners(docId));
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const data = await r.json();
 
     if (!data || !data.length) {
-      $body.html('<div class="text-center text-muted">Chưa có người ký nào.</div>');
+      $body.html('<div class="text-center text-muted py-4"><i class="bi bi-people fs-1 d-block mb-2"></i>Chưa thiết lập người ký.</div>');
       new bootstrap.Modal(document.getElementById('signersModal')).show();
       return;
     }
 
     const me = curUser();
+    let timelineHtml = '<div class="timeline">';
 
-    // build rows safely (tính toán JS trước khi put vào template string)
-    const rowsHtml = data.map(s => {
+    data.forEach(s => {
       const name = esc(s.full_name || s.signer_id);
-      const status = esc(s.status || '');
-      const signedAt = s.signed_at ? esc(new Date(s.signed_at).toLocaleString()) : '-';
-
       const isMySigner = String(s.signer_id) === String(me);
-      // const isMyTurn = isMySigner && s.status === 'Đang trình ký';
+      
+      let markerClass = 'waiting';
+      let statusText = 'Chờ xử lý';
+      let statusColor = 'text-muted';
+      let actionHtml = '';
 
-      let actionCell = '-';
-      if (isMySigner) {
-              if (s.status === 'Đang trình ký') {
-                  // Case 1: Đến lượt => Hiện nút
-                  actionCell = `
-                      <button class="btn btn-success btn-sm sign-btn me-1" data-id="${docId}" data-action="signed" data-signer="${s.signer_id}">Ký</button>
-                      <button class="btn btn-danger btn-sm sign-btn" data-id="${docId}" data-action="rejected" data-signer="${s.signer_id}">Từ chối</button>
-                  `;
-              } else if (s.status === 'Đã ký') {
-                  // Case 2: Đã ký xong => Hiện text xanh
-                  actionCell = `<span class="text-success fw-bold"><i class="bi bi-check-circle"></i> Đã hoàn thành</span>`;
-              } else if (s.status === 'Từ chối') {
-                  // Case 3: Đã từ chối => Hiện text đỏ
-                  actionCell = `<span class="text-danger fw-bold"><i class="bi bi-x-circle"></i> Đã từ chối</span>`;
-              } else {
-                  // Case 4: Chờ trình ký / Nháp => Hiện text xám
-                  actionCell = `<span class="text-muted fst-italic">Chưa tới lượt</span>`;
-              }
-            }
-      return `<tr>
-        <td>${name}</td>
-        <td>${status}</td>
-        <td>${signedAt}</td>
-        <td>${actionCell}</td>
-      </tr>`;
-    }).join('');
+      // Xác định trạng thái để tô màu marker và text
+      if (s.status === 'Đang trình ký') {
+        markerClass = 'active'; // Màu xanh dương nhấp nháy
+        statusText = 'Đang chờ ký...';
+        statusColor = 'text-primary fw-bold';
+      } else if (s.status === 'Đã ký') {
+        markerClass = 'success'; // Màu xanh lá
+        statusText = 'Đã ký duyệt';
+        statusColor = 'text-success';
+      } else if (s.status === 'Từ chối') {
+        markerClass = 'danger'; // Màu đỏ
+        statusText = 'Đã từ chối';
+        statusColor = 'text-danger';
+      }
 
-    $body.html(`<table class="table table-bordered align-middle">
-      <thead class="table-light">
-        <tr><th>Người ký</th><th>Trạng thái</th><th>Thời gian ký</th><th>Thao tác</th></tr>
-      </thead>
-      <tbody>${rowsHtml}</tbody>
-    </table>`);
+      // Nếu là lượt của mình và đang trình ký -> Hiện nút hành động NGAY TRONG TIMELINE
+      if (isMySigner && s.status === 'Đang trình ký') {
+          actionHtml = `
+            <div class="mt-2 pt-2 border-top">
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-success flex-grow-1 sign-btn" data-id="${docId}" data-action="signed" data-signer="${s.signer_id}">
+                        <i class="bi bi-pen"></i> Ký duyệt ngay
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger flex-grow-1 sign-btn" data-id="${docId}" data-action="rejected" data-signer="${s.signer_id}">
+                        <i class="bi bi-x-circle"></i> Từ chối
+                    </button>
+                </div>
+            </div>
+          `;
+      }
+      
+      // Hiển thị thời gian
+      const timeHtml = s.signed_at 
+        ? `<small class="text-muted"><i class="bi bi-clock-history"></i> ${new Date(s.signed_at).toLocaleString()}</small>` 
+        : '';
 
+      timelineHtml += `
+        <div class="timeline-item">
+            <div class="timeline-marker ${markerClass}"></div>
+            <div class="timeline-content">
+                <div class="timeline-header">
+                    <h6 class="timeline-title">
+                        Bước ${s.step}: ${name} 
+                        ${isMySigner ? '<span class="badge bg-warning text-dark ms-1" style="font-size:10px">Bạn</span>' : ''}
+                    </h6>
+                    ${timeHtml}
+                </div>
+                <div class="timeline-status ${statusColor}">
+                    ${statusText}
+                </div>
+                ${actionHtml}
+            </div>
+        </div>
+      `;
+    });
+    timelineHtml += '</div>';
+
+    // Thêm một chút thông tin tổng quan ở trên đầu modal
+    const headerInfo = `<div class="alert alert-light border-0 bg-light mb-3">
+        <small class="text-muted">Danh sách người ký theo thứ tự ưu tiên từ trên xuống dưới.</small>
+    </div>`;
+
+    $body.html(headerInfo + timelineHtml);
     new bootstrap.Modal(document.getElementById('signersModal')).show();
 
   } catch (e) {
@@ -307,4 +467,101 @@ $('#editDocForm').on('submit', async function(e){
     if (!r.ok) throw r; const res = await r.json();
     if (res && res.success){ alert('Cập nhật văn bản thành công!'); bootstrap.Modal.getInstance(document.getElementById('editDocModal'))?.hide(); await loadDocuments(); } else alert('Lỗi: ' + (res && res.error ? res.error : 'Không xác định'));
   } catch(e){ console.error('update', e); alert('Lỗi khi cập nhật văn bản'); }
+});
+// Xử lý khi bấm vào tên cuộc họp trong bảng văn bản
+$(document).on('click', '.view-booking-btn', async function(){
+    const bookingId = $(this).data('id');
+    const $modal = new bootstrap.Modal(document.getElementById('linkedBookingModal'));
+    const $content = $('#linkedBookingContent');
+    
+    $modal.show();
+    $content.html('<div class="text-center py-3"><div class="spinner-border text-primary"></div></div>');
+
+    try {
+        // ✅ 1. Gọi API có sẵn của bạn: /detail
+        const r = await fetch(`/api/bookings/${bookingId}/detail`);
+        
+        if(!r.ok) throw new Error('Không tìm thấy thông tin cuộc họp');
+        const b = await r.json();
+
+        // Xử lý hiển thị thời gian
+        const timeStr = `${new Date(b.start_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - ${new Date(b.end_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+        const dateStr = new Date(b.start_time).toLocaleDateString('vi-VN');
+
+        // ✅ 2. Xử lý hiển thị danh sách người tham gia (Dữ liệu API bạn trả về rất đầy đủ)
+        let participantsHtml = '';
+        
+        // Hiển thị Team
+        if (b.teams && b.teams.length > 0) {
+            const teamNames = b.teams.map(t => `<span class="badge bg-primary me-1">${esc(t.name)}</span>`).join('');
+            participantsHtml += `<div class="mb-1"><small class="text-muted fw-bold">Team:</small> ${teamNames}</div>`;
+        }
+        
+        // Hiển thị Cá nhân
+        if (b.participants && b.participants.length > 0) {
+            const userNames = b.participants.map(p => esc(p.full_name)).join(', ');
+            participantsHtml += `<div><small class="text-muted fw-bold">Thành viên:</small> <span class="text-dark small">${userNames}</span></div>`;
+        }
+        
+        if (!participantsHtml) participantsHtml = '<span class="text-muted fst-italic small">Không có người tham dự</span>';
+
+        // ✅ 3. Render HTML (Khớp với các trường: booked_by, room_name...)
+        const html = `
+            <div class="list-group list-group-flush">
+                <div class="list-group-item bg-light">
+                    <small class="text-uppercase text-muted fw-bold" style="font-size: 0.75rem;">Chủ đề cuộc họp</small>
+                    <div class="fw-bold fs-5 text-primary mt-1">${esc(b.title)}</div>
+                </div>
+
+                <div class="list-group-item">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <small class="text-muted"><i class="bi bi-calendar3"></i> Ngày họp</small>
+                            <div class="fw-medium">${dateStr}</div>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted"><i class="bi bi-clock"></i> Thời gian</small>
+                            <div class="fw-medium">${timeStr}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="list-group-item">
+                    <div class="row g-2">
+                         <div class="col-6">
+                             <small class="text-muted"><i class="bi bi-geo-alt-fill text-danger"></i> Phòng họp</small>
+                             <div class="fw-medium">${esc(b.room_name || 'Chưa xác định')}</div>
+                         </div>
+                         <div class="col-6">
+                             <small class="text-muted"><i class="bi bi-person-badge-fill text-info"></i> Người đặt</small>
+                             <div class="fw-medium">${esc(b.booked_by || 'Admin')}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="list-group-item">
+                     <small class="text-muted mb-1 d-block"><i class="bi bi-people-fill"></i> Thành phần tham dự</small>
+                     ${participantsHtml}
+                </div>
+
+                <div class="list-group-item">
+                     <small class="text-muted">Mô tả / Nội dung</small>
+                     <div class="fst-italic bg-body-secondary p-2 rounded mt-1 small">${esc(b.description || 'Không có mô tả chi tiết')}</div>
+                </div>
+            </div>
+        `;
+        $content.html(html);
+
+    } catch (e) {
+        console.error(e);
+        $content.html(`
+            <div class="alert alert-warning border-0 d-flex align-items-center" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <div>
+                    Không thể tải thông tin cuộc họp.<br>
+                    <small class="text-muted">Có thể cuộc họp này đã bị xóa hoặc bạn không có quyền xem.</small>
+                </div>
+            </div>
+        `);
+    }
 });

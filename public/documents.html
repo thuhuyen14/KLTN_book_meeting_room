@@ -14,6 +14,7 @@
 
   <!-- Quill JS -->
   <script src="https://cdn.quilljs.com/1.3.7/quill.js"></script>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 
 </head>
 <body>
@@ -28,7 +29,7 @@
       </button>
     </div>
 
-    <table class="table table-bordered table-hover align-middle">
+    <table class="table table-bordered table-hover table-striped align-middle">
       <thead class="table-dark">
         <tr>
           <th>#</th>
@@ -62,6 +63,14 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
       </div>
       <div class="modal-body">
+        <div class="alert alert-info border-0 shadow-sm d-flex align-items-center" role="alert">
+          <i class="bi bi-info-circle-fill fs-4 me-3 text-info"></i>
+          <div>
+            <strong>Lưu ý về luồng ký:</strong>
+            <div class="small">Hệ thống sẽ trình ký tuần tự theo danh sách bạn chọn dưới đây. <br>
+            (Người xếp thứ 1 ký xong &rarr; Người thứ 2 mới nhận được thông báo ký).</div>
+          </div>
+        </div>
         <form id="createDocForm" enctype="multipart/form-data">
 
           <div class="mb-3">
@@ -197,6 +206,22 @@
     </div>
   </div>
 </div>
+<div class="modal fade" id="linkedBookingModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-info-subtle">
+        <h5 class="modal-title"><i class="bi bi-link-45deg"></i> Thông tin cuộc họp gốc</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="linkedBookingContent">
+        Đang tải...
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
+      </div>
+    </div>
+  </div>
+</div>
   <!-- Scripts -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="js/navbar.js"></script> <!-- file navbar logic bạn vừa tạo -->
@@ -216,33 +241,11 @@
       });
     });
   </script>
-  <!-- <script>
-  // Khi chọn template → load nội dung
-  $("#templateId").on("change", async function () {
-    const id = $(this).val();
-    if (!id) {
-      quill.setContents([{ insert: '\n' }]); // ✅ reset Quill editor
-      $("#templateEditorWrapper").hide();
-      $("#docFile").prop("required", true); // ✅ dùng prop thay vì attr
-      $("#fileUploadWrapper").show();
-      return;
-    }
-    try {
-      const res = await fetch(`/api/document_templates/${id}`); // ✅ sửa URL
-      const t = await res.json();
-      quill.root.innerHTML = t.content || ""; // ✅ dùng Quill
-      $("#templateEditorWrapper").show();
-      $("#fileUploadWrapper").hide();
-      $("#docFile").prop("required", false); // ✅ dùng prop
-    } catch (err) {
-      console.error("Không load được template", err);
-    }
-  });
-</script> -->
-
   <!-- Select2 -->
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
   <script src="js/main.js"></script>
   <script src="js/documents.js"></script>
 </body>

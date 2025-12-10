@@ -207,6 +207,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (!res.ok) throw new Error('Không tải được lịch');
                 const data = await res.json();
                 const events = data.map(b => ({
+                    id: b.id,
                     title: b.title,
                     start: b.start_time,
                     end: b.end_time,
@@ -233,6 +234,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             document.getElementById('modalBookedBy').textContent = info.event.extendedProps.bookedBy;
             document.getElementById('modalStart').textContent = info.event.start.toLocaleString();
             document.getElementById('modalEnd').textContent = info.event.end.toLocaleString();
+            const btnCreateDoc = document.getElementById('btnCreateDocFromBooking');
+            if (btnCreateDoc) {
+                const bookingId = info.event.id; // Lấy ID cuộc họp
+                const startTime = info.event.start;
+                const now = new Date();
+                
+                // Tính khoảng cách ngày: (Ngày họp - Hôm nay)
+                // Kết quả ra số ngày (âm là quá khứ, dương là tương lai)
+                const diffTime = startTime - now;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                // Logic: Chỉ hiện nếu trong vòng 30 ngày trước hoặc 7 ngày tới
+                if (diffDays >= -14 && diffDays <= 14) {
+                    btnCreateDoc.style.display = 'inline-block'; // Hiện nút
+                    // Gắn link chuyển sang trang Documents kèm ID
+                    btnCreateDoc.href = `documents.html?create_from_booking=${bookingId}`;
+                } else {
+                    btnCreateDoc.style.display = 'none'; // Ẩn nút nếu quá hạn
+                }
+            }
             new bootstrap.Modal(modalEl).show();
         }
     });

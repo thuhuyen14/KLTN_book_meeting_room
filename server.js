@@ -1383,27 +1383,57 @@ const upload = multer({ storage });  // đây là biến upload doc cho nghiệp
 // Lấy danh sách văn bản
 app.get('/api/documents', async (req, res) => {
   try {
-    const [rows] = await db.query(`
-      SELECT 
-        d.id,
-        d.title,
-        d.file_path,
-        d.status,
-        b.title AS booking_title,
+    // 1. Lấy ID người dùng hiện tại
+    // (Trong thực tế nên lấy từ req.session hoặc JWT token. 
+    // Ở đây mình lấy từ query param để khớp với frontend hiện tại của bạn)
+    const currentUserId = req.query.user_id; 
+
+    if (!currentUserId) {
+        return res.status(400).json({ error: "Thiếu thông tin người dùng (user_id)" });
+    }
+
+    // 2. Câu lệnh SQL lọc quyền xem
+    // Logic: Xem được nếu (Là người tạo) HOẶC (Là người ký) HOẶC (Là người tham gia cuộc họp)
+    const sql = `
+      SELECT DISTINCT 
+        d.id, 
+        d.title, 
+        d.status, 
+        d.created_at, 
+        d.file_path, 
+        d.booking_id, 
+        d.created_by,
         up.full_name AS creator_name,
-        d.created_at,
-        d.created_by
+        b.title AS booking_title
       FROM documents d
-      LEFT JOIN bookings b ON d.booking_id = b.id
+      -- Lấy tên người tạo
       LEFT JOIN user_profiles up ON d.created_by = up.user_id
+      -- Lấy tên cuộc họp
+      LEFT JOIN bookings b ON d.booking_id = b.id
+      -- Join để check xem có phải người ký không
+      LEFT JOIN document_signers ds ON d.id = ds.document_id
+      -- Join để check xem có tham gia cuộc họp không (BẢNG participants)
+      LEFT JOIN participants p ON d.booking_id = p.booking_id
+      
+      WHERE 
+         d.created_by = ?        -- Điều kiện 1: Chính chủ tạo
+         OR ds.signer_id = ?     -- Điều kiện 2: Có tên trong danh sách ký
+         OR p.user_id = ?        -- Điều kiện 3: Có tham gia cuộc họp đó
+         
       ORDER BY d.created_at DESC
-    `);
+    `;
+
+    // 3. Thực thi query
+    // Truyền currentUserId vào 3 dấu hỏi (?) tương ứng với 3 điều kiện trên
+    const [rows] = await db.query(sql, [currentUserId, currentUserId, currentUserId]);
+
     res.json(rows);
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Get Documents Error:', err);
+    res.status(500).json({ error: 'Lỗi tải danh sách văn bản' });
   }
 });
-
 /*
 app.get('/api/documents/:id/signers', async (req, res) => {
   try {
