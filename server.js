@@ -1404,7 +1404,7 @@ app.get('/api/documents', async (req, res) => {
   }
 });
 
-
+/*
 app.get('/api/documents/:id/signers', async (req, res) => {
   try {
     const [rows] = await db.query(`
@@ -1448,9 +1448,146 @@ app.post('/api/documents/:id/sign', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+*/
+app.post('/api/documents/:id/sign', async (req, res) => {
+  const { signer_id, action } = req.body; // <-- sửa đây
+  const docId = req.params.id;
+
+  try {
+    // 1. Kiểm tra signer có đang active không
+    const [[current]] = await db.query(`
+      SELECT status, step 
+      FROM document_signers
+      WHERE document_id = ? AND signer_id = ?
+    `, [docId, signer_id]);
+
+    if (!current) return res.status(404).json({ error: "Signer không tồn tại" });
+    if (current.status !== 'Đang trình ký') return res.status(400).json({ error: "Chưa tới lượt ký" });
+
+    const newStatus = action === 'signed' ? 'Đã ký' : 'Từ chối';
+
+    await db.query(`
+      UPDATE document_signers
+      SET status = ?, signed_at = NOW()
+      WHERE document_id = ? AND signer_id = ?
+    `, [newStatus, docId, signer_id]);
+
+    if (newStatus === 'Từ chối') {
+      await db.query(`UPDATE documents SET status = 'Từ chối' WHERE id = ?`, [docId]);
+      return res.json({ success: true });
+    }
+
+    const [[next]] = await db.query(`
+      SELECT signer_id FROM document_signers
+      WHERE document_id = ? AND step = ?
+    `, [docId, current.step + 1]);
+
+    if (!next) {
+      await db.query(`UPDATE documents SET status = 'Đã duyệt' WHERE id = ?`, [docId]);
+    } else {
+      await db.query(`
+        UPDATE document_signers
+        SET status = 'Đang trình ký'
+        WHERE document_id = ? AND step = ?
+      `, [docId, current.step + 1]);
+    }
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// mới thêm cột step nên tạo api mới
+app.post('/api/documents/:id/signers', async (req, res) => {
+  const docId = req.params.id;
+  const { signer_id, step } = req.body;
+
+  try {
+    await db.query(`
+      INSERT INTO document_signers (document_id, signer_id, step, status)
+      VALUES (?, ?, ?, 'Chờ trình ký')
+    `, [docId, signer_id, step]);
+
+    res.json({ message: 'Đã thêm người ký vào luồng' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Không thể thêm người ký' });
+  }
+});
+app.get('/api/documents/:id/signers', async (req, res) => {
+  const docId = req.params.id;
+
+  try {
+    const [rows] = await db.query(`
+      SELECT ds.id, ds.signer_id, ds.status, ds.signed_at, ds.step,
+             up.full_name
+      FROM document_signers ds
+      LEFT JOIN user_profiles up ON ds.signer_id = up.user_id
+      WHERE ds.document_id = ?
+      ORDER BY ds.step ASC
+    `, [docId]);
+
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Không thể tải luồng ký' });
+  }
+});
+app.put('/api/documents/:id/signers/:signerId/approve', async (req, res) => {
+  const docId = req.params.id;
+  const signerId = req.params.signerId;
+
+  try {
+    // 1. cập nhật signer hiện tại
+    await db.query(`
+      UPDATE document_signers
+      SET status = 'Đã ký', signed_at = NOW()
+      WHERE document_id = ? AND signer_id = ?
+    `, [docId, signerId]);
+
+
+    // 2. lấy step hiện tại
+    const [[currentStep]] = await db.query(`
+      SELECT step FROM document_signers
+      WHERE document_id = ? AND signer_id = ?
+    `, [docId, signerId]);
+
+
+    if (!currentStep) {
+      return res.status(404).json({ error: 'Signer không tồn tại' });
+    }
+
+    // 3. mở khóa bước kế tiếp
+    const [next] = await db.query(`
+      UPDATE document_signers
+      SET status = 'Đang trình ký'
+      WHERE document_id = ? AND step = ? AND status = 'Chờ trình ký'
+    `, [docId, currentStep.step + 1]);
+
+
+    // 4. nếu không còn bước nào -> tài liệu duyệt xong
+    if (next.affectedRows === 0) {
+      await db.query(`
+        UPDATE documents
+        SET status = 'Đã duyệt'
+        WHERE id = ?
+      `, [docId]);
+    }
+
+    res.json({ message: 'Đã ký thành công' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Không thể ký duyệt' });
+  }
+});
+
+
 // ============================================
 // 1️⃣ TẠO VĂN BẢN MỚI (luôn là Nháp)
-// ============================================
 app.post("/api/documents", upload.single("file"), async (req, res) => {
   const conn = await db.getConnection();
   try {
@@ -1460,20 +1597,30 @@ app.post("/api/documents", upload.single("file"), async (req, res) => {
 
     await conn.beginTransaction();
 
-    // ✅ Luôn tạo với status = 'Nháp'
+    // 1. INSERT DOCUMENT (Giữ nguyên)
     const [result] = await conn.query(
       `INSERT INTO documents 
-       (title, description, file_path, generated_body, template_id, booking_id, created_by, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'Nháp')`,
+        (title, description, file_path, generated_body, template_id, booking_id, created_by, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'Nháp')`,
       [title, description || null, filePath, generated_body || null, template_id || null, booking_id || null, created_by]
     );
     const documentId = result.insertId;
 
-    // ✅ Lưu người ký với status = 'Chờ trình ký' (chưa gửi)
+    // 2. INSERT SIGNERS (❌ CHỖ CẦN SỬA LÀ ĐÂY)
     if (parsedSigners.length > 0) {
-      const signerValues = parsedSigners.map(id => [documentId, id, 'Chờ trình ký']);
+      // CŨ (SAI): const signerValues = parsedSigners.map(id => [documentId, id, 'Chờ trình ký']);
+      
+      // ✅ MỚI (ĐÚNG): Thêm tham số index để tính Step (người đầu là 1, người sau là 2...)
+      const signerValues = parsedSigners.map((id, index) => [
+          documentId, 
+          id, 
+          index + 1,       // <--- Thêm dòng này: Step = 1, 2, 3...
+          'Chờ trình ký'
+      ]);
+
+      // Cập nhật câu lệnh SQL thêm cột 'step'
       await conn.query(
-        `INSERT INTO document_signers (document_id, signer_id, status) VALUES ?`,
+        `INSERT INTO document_signers (document_id, signer_id, step, status) VALUES ?`, 
         [signerValues]
       );
     }
@@ -1525,11 +1672,19 @@ app.post("/api/documents/:id/submit", async (req, res) => {
     // ✅ Cập nhật status văn bản
     await conn.query(`UPDATE documents SET status = 'Đang trình ký' WHERE id = ?`, [docId]);
 
-    // ✅ Cập nhật status tất cả người ký: Chờ trình ký → Đang trình ký
-    await conn.query(
-      `UPDATE document_signers SET status = 'Đang trình ký' WHERE document_id = ? AND status = 'Chờ trình ký'`,
+// (Những người Step 2, 3... vẫn giữ nguyên là 'Chờ trình ký')
+    const [result] = await conn.query(
+      `UPDATE document_signers 
+       SET status = 'Đang trình ký' 
+       WHERE document_id = ? AND step = 1`,
       [docId]
     );
+
+    // Kiểm tra an toàn: Nếu không tìm thấy step 1 (lỗi dữ liệu), thì revert lại
+    if (result.affectedRows === 0) {
+        await conn.rollback();
+        return res.status(400).json({ success: false, error: "Lỗi luồng ký: Không tìm thấy người ký bước 1" });
+    }
 
     await conn.commit();
     res.json({ success: true });
