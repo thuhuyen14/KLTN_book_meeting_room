@@ -2372,48 +2372,75 @@ app.get('/api/report/sign', async (req, res) => {
 
 //4️⃣ Báo cáo người dùng (với filter phòng ban & người dùng)
 app.get('/api/report/users', async (req, res) => {
-  try {
-    const { dept, user_id } = req.query;
+    try {
+        const { dept, from, to } = req.query;
 
-    let sql = `
-      SELECT
-        u.id,
-        up.full_name,
-        d.name AS department,
-        (SELECT COUNT(*) FROM bookings b WHERE b.user_id = u.id) AS booking_count,
-        (SELECT COUNT(*) FROM documents doc WHERE doc.created_by = u.id) AS document_count
-      FROM users u
-      LEFT JOIN user_profiles up ON up.user_id = u.id
-      LEFT JOIN departments d ON u.department_id = d.id
-      WHERE 1=1
-    `;
+        // 1. Chuẩn bị điều kiện cho Sub-query (Đếm Booking & Document)
+        let dateCondition = "";
+        const subQueryParams = [];
 
-    const params = [];
-    
-    // Filter by department
-    if (dept) { 
-      sql += " AND d.name = ?"; 
-      params.push(dept); 
+        if (from) {
+            dateCondition += " AND created_at >= ? ";
+            subQueryParams.push(from);
+        }
+        if (to) {
+            // Lưu ý: Nếu muốn lấy hết ngày "to", nên thêm thời gian cuối ngày hoặc dùng < ngày hôm sau
+            dateCondition += " AND created_at <= ? "; 
+            subQueryParams.push(to + ' 23:59:59'); // Mẹo nhỏ để lấy hết ngày cuối
+        }
+
+        // 2. Chuẩn bị điều kiện cho Main Query (Lọc User theo phòng)
+        let mainCondition = "";
+        const mainQueryParams = [];
+
+        if (dept && dept !== 'Tất cả') {
+            mainCondition += " AND d.name = ? ";
+            mainQueryParams.push(dept);
+        }
+
+        // 3. Ghép câu SQL hoàn chỉnh
+        // Lưu ý: Chúng ta nhúng biến dateCondition vào thẳng chuỗi SQL
+        const sql = `
+            SELECT
+                u.id,
+                up.full_name,
+                d.name AS department,
+                
+                (SELECT COUNT(*) 
+                 FROM bookings b 
+                 WHERE b.user_id = u.id ${dateCondition}
+                ) AS booking_count,
+
+                (SELECT COUNT(*) 
+                 FROM documents doc 
+                 WHERE doc.created_by = u.id ${dateCondition}
+                ) AS document_count
+
+            FROM users u
+            LEFT JOIN user_profiles up ON up.user_id = u.id
+            LEFT JOIN departments d ON u.department_id = d.id
+            
+            WHERE 1=1 ${mainCondition}
+            ORDER BY booking_count DESC, document_count DESC
+        `;
+
+        // 4. Gộp tham số theo đúng thứ tự xuất hiện của dấu ?
+        // Thứ tự trong SQL: SubQuery Booking -> SubQuery Doc -> Main Where
+        const finalParams = [
+            ...subQueryParams, // Tham số cho Booking (from, to)
+            ...subQueryParams, // Tham số cho Document (from, to) - Lặp lại vì dùng 2 sub-query
+            ...mainQueryParams // Tham số cho Department
+        ];
+
+        // 5. Thực thi
+        const [rows] = await db.execute(sql, finalParams);
+        res.json(rows);
+
+    } catch (error) {
+        console.error("Lỗi API Report:", error);
+        res.status(500).json({ message: "Lỗi server khi tải báo cáo" });
     }
-
-    // Filter by user(s) - nếu có multiple user_id
-    if (user_id) {
-      const userIds = Array.isArray(user_id) ? user_id : [user_id];
-      const placeholders = userIds.map(() => '?').join(',');
-      sql += ` AND u.id IN (${placeholders})`;
-      params.push(...userIds);
-    }
-
-    sql += " ORDER BY booking_count DESC";
-
-    // console.log("Query:", sql, "Params:", params);
-    const [rows] = await db.query(sql, params);
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
 });
-
 // ==========================================
 // 5️⃣ CÁC API THỐNG KÊ (DASHBOARD)
 // ==========================================

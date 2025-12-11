@@ -505,20 +505,23 @@ document.addEventListener("DOMContentLoaded", async () => {
       const to = document.getElementById("room_to")?.value;
       const room_id = document.getElementById("room_filter")?.value;
       const user_id = document.getElementById("room_user_filter")?.value;
+      
       const params = new URLSearchParams();
       if (from) params.append("from", from);
       if (to) params.append("to", to);
       if (room_id) params.append("room_id", room_id);
       if (user_id) params.append("user_id", user_id);
+      
       const data = await fetchJSON(`/api/report/rooms?${params.toString()}`);
       const tbody = document.querySelector("#roomReportTable tbody");
       if (!tbody) return;
+      
       tbody.innerHTML = "";
+      
       data.forEach(row => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td>${row.day}</td>
-          <td>${row.room_name}</td>
+          <td>${formatDateOnly(row.day)}</td> <td>${row.room_name}</td>
           <td>${row.time_range}</td>
           <td>${row.user_name}</td>
           <td>${row.purpose ?? ""}</td>
@@ -565,68 +568,69 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("btnSignSearch")?.addEventListener("click", loadSignReport);
   await loadSignReport();
 
-/* ---------------------------
-   USER ACTIVITY + SORT
----------------------------- */
+/* ===========================================================
+   USER ACTIVITY + SORT (Báo cáo người dùng)
+   =========================================================== */
 
 let userRowsCache = [];
 let sortDir = 1;
 
+// 1. Hàm vẽ bảng
 function renderUserTable(rows) {
   const tbody = document.querySelector("#userReportTable tbody");
+  if (!tbody) return;
   tbody.innerHTML = "";
+
+  if (!rows || rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted py-3">Không có dữ liệu</td></tr>`;
+    return;
+  }
+
   rows.forEach(u => {
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td>${u.full_name}</td>
-      <td>${u.department}</td>
-      <td>${u.booking_count}</td>
-      <td>${u.document_count}</td>
+      <td>${u.full_name || 'N/A'}</td>
+      <td>${u.department || '-'}</td>
+      <td class="text-center">${u.booking_count}</td>
+      <td class="text-center">${u.document_count}</td>
     `;
     tbody.appendChild(tr);
   });
 }
 
+// 2. Hàm gọi API
 async function loadUserActivity() {
   try {
-    const dept = document.getElementById("filter_dept")?.value || "";
-    const params = dept ? `?dept=${encodeURIComponent(dept)}` : "";
+    const deptEl = document.getElementById("filter_dept");
+    const fromEl = document.getElementById("user_from");
+    const toEl = document.getElementById("user_to");
 
-    const rows = await fetchJSON(`/api/report/users${params}`);
+    // Lấy giá trị input
+    const dept = deptEl ? deptEl.value : "";
+    const from = fromEl ? fromEl.value : "";
+    const to = toEl ? toEl.value : "";
 
+    // Tạo params gửi lên Server
+    const params = new URLSearchParams();
+    if (dept && dept !== "Tất cả") params.append("dept", dept);
+    if (from) params.append("from", from);
+    if (to) params.append("to", to);
+
+    // Gọi API
+    const rows = await fetchJSON(`/api/report/users?${params.toString()}`);
+
+    // Cache lại để dùng cho Sort
     userRowsCache = rows.slice();
     renderUserTable(userRowsCache);
+
   } catch (e) {
     console.warn("loadUserActivity error:", e);
+    const tbody = document.querySelector("#userReportTable tbody");
+    if (tbody) tbody.innerHTML = `<tr><td colspan="4" class="text-danger text-center">Lỗi tải dữ liệu</td></tr>`;
   }
 }
 
-/* --- SORT WITH ARROWS --- */
-document.querySelectorAll("thead th.sortable").forEach(th => {
-  th.addEventListener("click", () => {
-    const key = th.dataset.key;
-
-    // reset arrow icons
-    document.querySelectorAll("thead th.sortable")
-      .forEach(h => h.classList.remove("sorted-asc", "sorted-desc"));
-
-    sortDir *= -1;
-
-    if (sortDir === 1) th.classList.add("sorted-asc");
-    else th.classList.add("sorted-desc");
-
-    userRowsCache.sort((a, b) => {
-      if (!isNaN(Number(a[key]))) {
-        return (Number(a[key]) - Number(b[key])) * sortDir;
-      }
-      return a[key].localeCompare(b[key]) * sortDir;
-    });
-
-    renderUserTable(userRowsCache);
-  });
-});
-
-/* Load departments (dropdown) */
+// 3. Load danh sách phòng ban vào Dropdown
 async function loadDepartments() {
   try {
     const list = await fetchJSON("/api/departments");
@@ -646,13 +650,46 @@ async function loadDepartments() {
   }
 }
 
-/* --- BIND EVENTS --- */
-// document.getElementById("filter_dept")?.addEventListener("change", loadUserActivity);
-document.getElementById("btnUserSearch")?.addEventListener("click", loadUserActivity);
+// 4. Xử lý sự kiện Sort (Khi click vào tiêu đề cột)
+document.querySelectorAll("#userReportTable thead th.sortable").forEach(th => {
+  th.addEventListener("click", () => {
+    const key = th.dataset.key; // Lấy key từ data-key HTML
 
-/* Init */
-await loadDepartments();
-await loadUserActivity();
+    // Reset class CSS của các cột khác
+    document.querySelectorAll("#userReportTable thead th.sortable")
+      .forEach(h => h.classList.remove("sorted-asc", "sorted-desc"));
+
+    sortDir *= -1; // Đảo chiều sắp xếp
+
+    // Thêm class để hiện mũi tên (nếu có CSS hỗ trợ)
+    if (sortDir === 1) th.classList.add("sorted-asc");
+    else th.classList.add("sorted-desc");
+
+    userRowsCache.sort((a, b) => {
+      const valA = a[key];
+      const valB = b[key];
+
+      // Nếu là số thì trừ, nếu là chữ thì so sánh alphabet
+      if (!isNaN(Number(valA)) && !isNaN(Number(valB))) {
+        return (Number(valA) - Number(valB)) * sortDir;
+      }
+      return String(valA).localeCompare(String(valB)) * sortDir;
+    });
+
+    renderUserTable(userRowsCache);
+  });
+});
+
+// 5. Khởi chạy (Dùng IIFE async để chạy await thoải mái)
+(async () => {
+  // Gắn sự kiện nút tìm kiếm
+  const btn = document.getElementById("btnUserSearch");
+  if (btn) btn.onclick = loadUserActivity;
+
+  // Load dữ liệu lần đầu
+  await loadDepartments();
+  await loadUserActivity();
+})();
 
   /* ---------- BIND EXPORT BUTTONS ---------- */
 
