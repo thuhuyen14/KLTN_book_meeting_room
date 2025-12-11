@@ -314,13 +314,136 @@ async function exportTableToPDF({ tableEl, title = "Báo cáo", creator = "Admin
    Excel export (SheetJS)
    - tableEl can be table element or id
 --------------------------- */
-function exportTableToExcel({ tableEl, fileName = "report.xlsx" }) {
-  if (!window.XLSX) throw new Error("SheetJS (XLSX) chưa được nạp");
+/* ---------------------------
+   Excel export (SheetJS) - Đã nâng cấp
+   - Thêm Header (Công ty, Tiêu đề, Bộ lọc)
+   - Thêm Footer (Ngày tháng, Người lập)
+--------------------------- */
+/* ---------------------------
+   Excel export (Advanced Style)
+   - Yêu cầu: thư viện xlsx-js-style
+--------------------------- */
+/* ---------------------------
+   Excel export (Advanced Style) - Đã sửa lỗi căn phải Footer
+--------------------------- */
+function exportTableToExcel({ tableEl, fileName = "report.xlsx", title = "BÁO CÁO" }) {
+  if (!window.XLSX) throw new Error("Thư viện XLSX chưa được nạp");
 
   const tableElement = typeof tableEl === "string" ? document.getElementById(tableEl) : tableEl;
-  if (!tableElement) throw new Error("Table element không tồn tại: " + String(tableEl));
+  if (!tableElement) {
+      alert("Không tìm thấy bảng dữ liệu!");
+      return;
+  }
 
-  const wb = XLSX.utils.table_to_book(tableElement, { sheet: "Report" });
+  // 1. Lấy dữ liệu thô
+  const wsRaw = XLSX.utils.table_to_sheet(tableElement);
+  const tableData = XLSX.utils.sheet_to_json(wsRaw, { header: 1 });
+
+  // --- TÍNH TOÁN VỊ TRÍ CỘT TRƯỚC ---
+  // Tìm số cột lớn nhất trong bảng (để biết căn phải vào đâu)
+  const totalCols = tableData[0] ? tableData[0].length : 5;
+  const lastColIndex = totalCols - 1;
+  // Vị trí bắt đầu của phần chữ ký (lùi lại 2 cột so với cột cuối)
+  const footerColStart = Math.max(0, lastColIndex - 2); 
+  
+  // Tạo mảng các ô trống để đẩy text sang phải (Padding)
+  // Ví dụ: Bảng 5 cột, footer bắt đầu từ cột 3 -> Cần 3 ô trống [null, null, null]
+  const emptyPadding = new Array(footerColStart).fill(""); 
+
+  // 2. Chuẩn bị Header/Footer
+  const companyName = ["CÔNG TY CỔ PHẦN CHỨNG KHOÁN DNSE"];
+  const address = ["Địa chỉ: 63-65 Ngô Thị Nhậm, Hai Bà Trưng, Hà Nội"];
+  const emptyRow = [""];
+  const reportTitle = [title.toUpperCase()];
+
+  const filters = getActiveTabFilters(); 
+  const filterLines = buildFilterText(filters).map(line => [line]);
+
+  const creatorName = getCreatorInfo();
+  const now = new Date();
+  
+  // ✅ SỬA: Thêm padding vào trước nội dung Footer để đẩy sang phải
+  const dateLine = [...emptyPadding, `Hà Nội, ngày ${now.getDate()} tháng ${now.getMonth() + 1} năm ${now.getFullYear()}`];
+  const signerLabel = [...emptyPadding, "Người lập báo cáo"];
+  const signerName = [...emptyPadding, creatorName];
+
+  // 3. Gộp dữ liệu
+  const finalData = [
+      companyName, address, emptyRow, reportTitle, emptyRow,
+      ...filterLines,
+      emptyRow,
+      ...tableData,
+      emptyRow, emptyRow,
+      dateLine,     // Dòng ngày tháng (đã có padding)
+      signerLabel,  // Dòng chức danh (đã có padding)
+      emptyRow, emptyRow, emptyRow,
+      signerName    // Dòng tên người ký (đã có padding)
+  ];
+
+  // 4. Tạo Sheet
+  const ws = XLSX.utils.aoa_to_sheet(finalData);
+
+  // 5. === STYLE & MERGES ===
+  const filterCount = filterLines.length; 
+  const tableStartRow = 5 + filterCount + 1;
+  const tableEndRow = tableStartRow + tableData.length - 1;
+
+  // Merge Cells
+  ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: lastColIndex } }, // Tên công ty
+      { s: { r: 1, c: 0 }, e: { r: 1, c: lastColIndex } }, // Địa chỉ
+      { s: { r: 3, c: 0 }, e: { r: 3, c: lastColIndex } }, // Tiêu đề Báo cáo
+      
+      // ✅ SỬA MERGE FOOTER: Gộp từ footerColStart đến lastColIndex
+      { s: { r: tableEndRow + 3, c: footerColStart }, e: { r: tableEndRow + 3, c: lastColIndex } }, // Ngày tháng
+      { s: { r: tableEndRow + 4, c: footerColStart }, e: { r: tableEndRow + 4, c: lastColIndex } }, // Người lập
+      { s: { r: tableEndRow + 8, c: footerColStart }, e: { r: tableEndRow + 8, c: lastColIndex } }, // Tên
+  ];
+
+  // Styles Definition
+  const styleTitle = { font: { bold: true, sz: 14, color: { rgb: "4E73DF" } }, alignment: { horizontal: "center" } };
+  const styleHeader = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "4E73DF" } }, alignment: { horizontal: "center", vertical: "center" }, border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } } };
+  const styleBody = { border: { top: { style: "thin" }, bottom: { style: "thin" }, left: { style: "thin" }, right: { style: "thin" } }, alignment: { wrapText: true } };
+  const styleFooter = { alignment: { horizontal: "center" }, font: { italic: true } };
+  const styleFooterBold = { alignment: { horizontal: "center" }, font: { bold: true } };
+
+  // Apply Styles Loop
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellAddr = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!ws[cellAddr]) continue;
+
+          // Header Công ty
+          if (R === 0) ws[cellAddr].s = { font: { bold: true, sz: 11 } };
+          // Tiêu đề Báo cáo
+          if (R === 3) ws[cellAddr].s = styleTitle;
+          // Table Header
+          if (R === tableStartRow) ws[cellAddr].s = styleHeader;
+          // Table Body
+          if (R > tableStartRow && R <= tableEndRow) {
+              ws[cellAddr].s = styleBody;
+              if (C === 0) ws[cellAddr].s = { ...styleBody, alignment: { horizontal: "center" } }; // STT center
+          }
+          
+          // Footer (Sửa logic áp dụng style)
+          // Vì ta đã đẩy text sang cột footerColStart, nên ta bắt style tại cột đó
+          if (R > tableEndRow && C === footerColStart) {
+             if (R === tableEndRow + 3) ws[cellAddr].s = styleFooter; // Ngày tháng
+             if (R === tableEndRow + 4) ws[cellAddr].s = styleFooterBold; // Người lập báo cáo
+             if (R === tableEndRow + 8) ws[cellAddr].s = styleFooterBold; // Tên Admin
+          }
+      }
+  }
+
+  // Column Widths
+  const wscols = new Array(totalCols).fill({ wch: 20 });
+  wscols[0] = { wch: 8 }; // STT nhỏ thôi
+  ws['!cols'] = wscols;
+
+  // Xuất file
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Report");
   XLSX.writeFile(wb, fileName);
 }
 
@@ -550,7 +673,8 @@ await loadUserActivity();
     if (!info || !info.tableId) return alert("Không tìm thấy bảng để xuất.");
     exportTableToExcel({
       tableEl: info.tableId,
-      fileName: `${info.title.replace(/\s+/g, '_')}.xlsx`
+      fileName: `${info.title.replace(/\s+/g, '_')}.xlsx`,
+      title: info.title // <--- Thêm dòng này
     });
   }
 
@@ -572,7 +696,8 @@ await loadUserActivity();
   document.getElementById("btnRoomExcel")?.addEventListener("click", () =>
     exportTableToExcel({
       tableEl: "roomReportTable",
-      fileName: "BaoCao_SuDungPhongHop.xlsx"
+      fileName: "BaoCao_SuDungPhongHop.xlsx",
+      title: "Báo cáo sử dụng phòng họp" // <--- Thêm dòng này
     })
   );
   document.getElementById("btnSignPDF")?.addEventListener("click", () =>
@@ -586,6 +711,7 @@ await loadUserActivity();
   document.getElementById("btnSignExcel")?.addEventListener("click", () =>
     exportTableToExcel({
       tableEl: "signReportTable",
+      title: "Báo cáo trình ký",
       fileName: "BaoCao_TrinhKy.xlsx"
     })
   );
@@ -601,6 +727,7 @@ await loadUserActivity();
   document.getElementById("btnUserExcel")?.addEventListener("click", () =>
     exportTableToExcel({
       tableEl: "userReportTable",
+      title: "Báo cáo người dùng hoạt động",
       fileName: "BaoCao_NguoiDung.xlsx"
     })
   );
@@ -699,7 +826,8 @@ await loadUserActivity();
     })
   );
   document.getElementById("btnTopRoomExcel")?.addEventListener("click", () => 
-    exportTableToExcel({ tableEl: "topRoomTable", fileName: "ThongKe_TopPhong.xlsx" })
+    exportTableToExcel({ tableEl: "topRoomTable",
+      title: "Thống kê Top 5 Phòng họp",  fileName: "ThongKe_TopPhong.xlsx" })
   );
 
   // 2. Export Top Khung giờ
@@ -711,7 +839,8 @@ await loadUserActivity();
     })
   );
   document.getElementById("btnTopHourExcel")?.addEventListener("click", () => 
-    exportTableToExcel({ tableEl: "topHourTable", fileName: "ThongKe_TopKhungGio.xlsx" })
+    exportTableToExcel({ tableEl: "topHourTable",
+      title: "Thống kê Top 5 Khung giờ cao điểm",  fileName: "ThongKe_TopKhungGio.xlsx" })
   );
 
   // 3. Export Top Người ký
@@ -723,7 +852,8 @@ await loadUserActivity();
     })
   );
   document.getElementById("btnTopSignerExcel")?.addEventListener("click", () => 
-    exportTableToExcel({ tableEl: "topSignerTable", fileName: "ThongKe_TopNguoiKy.xlsx" })
+    exportTableToExcel({ tableEl: "topSignerTable",
+      title: "Thống kê Top 5 Người ký nhiều nhất",  fileName: "ThongKe_TopNguoiKy.xlsx" })
   );
 
   // 4. Export Top Người đặt
@@ -735,7 +865,8 @@ await loadUserActivity();
     })
   );
   document.getElementById("btnTopBookerExcel")?.addEventListener("click", () => 
-    exportTableToExcel({ tableEl: "topBookerTable", fileName: "ThongKe_TopNguoiDat.xlsx" })
+    exportTableToExcel({ tableEl: "topBookerTable", 
+      title: "Thống kê Top 5 Người đặt phòng", fileName: "ThongKe_TopNguoiDat.xlsx" })
   );
 
   // Tải dữ liệu mặc định khi mới vào trang (nếu muốn)
