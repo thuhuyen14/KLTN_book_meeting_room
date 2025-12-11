@@ -1906,146 +1906,367 @@ app.post('/api/upload_image', uploadRoomImage.single('image'), (req, res) => {
   res.json({ url: '/images/' + req.file.filename });
 });
 
-// Phòng nào được book nhiều nhất (MySQL)
+// Phòng nào được book nhiều nhất (MySQL)  -- bỏ, lấy api dưới đã lọc ngày
+// app.get('/api/analytic/rooms', async (req, res) => {
+//   try {
+//     const [rows] = await db.query(`
+//       SELECT r.name, COUNT(b.id) as count
+//       FROM bookings b
+//       JOIN rooms r ON b.room_id = r.id
+//       GROUP BY r.id
+//       ORDER BY count DESC
+//     `);
+//     res.json(rows);
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
+//  Tính Công Suất Sử Dụng (Occupancy) - ĐÃ FIX
+app.get('/api/analytic/vacancy', async (req, res) => {
+  try {
+    const { start, end } = req.query;
+
+    // 1. Xác định khoảng thời gian (Start -> End)
+    let startDate, endDate;
+    
+    if (start && end) {
+        // Parse ngày từ chuỗi 'YYYY-MM-DD'
+        startDate = new Date(start); 
+        endDate = new Date(end);
+    } else {
+        // Mặc định: Tháng hiện tại
+        const now = new Date();
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    }
+
+    // 2. Xử lý "Ngày kết thúc" cho chuẩn SQL (Lấy hết 23:59:59 của ngày cuối)
+    // Thay vì dùng SQL INTERVAL, ta cộng ngày ngay tại JS cho an toàn
+    // Tạo bản sao của endDate để cộng thêm 1 ngày
+    const queryEndDate = new Date(endDate); 
+    queryEndDate.setDate(queryEndDate.getDate() + 1); 
+
+    // Format sang chuỗi chuẩn YYYY-MM-DD để gửi vào SQL
+    const startSql = startDate.toISOString().slice(0, 10);
+    const endSql = queryEndDate.toISOString().slice(0, 10);
+
+    // Tính số ngày chênh lệch để tính Capacity (Công suất tối đa)
+    // (endDate gốc - startDate)
+    const timeDiff = endDate.getTime() - startDate.getTime();
+    const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // Cộng 1 để tính cả ngày bắt đầu
+
+    // 3. Query DB
+    // a) Tổng số phòng
+    const [roomsResult] = await db.query("SELECT COUNT(*) as total FROM rooms");
+    const totalRooms = roomsResult[0]?.total || 0;
+
+    if (totalRooms === 0) {
+        return res.json({ vacancy: 0, occupancy: 0 });
+    }
+
+    // b) Tổng giờ đã đặt
+    // Dùng startSql và endSql đã tính sẵn ở trên
+    const sqlBooked = `
+        SELECT SUM(TIMESTAMPDIFF(MINUTE, start_time, end_time)) / 60 as totalHours
+        FROM bookings
+        WHERE start_time >= ? AND start_time < ?
+    `;
+    const [bookedResult] = await db.query(sqlBooked, [startSql, endSql]);
+    const bookedHours = Number(bookedResult[0]?.totalHours || 0);
+
+    // 4. Tính toán tỷ lệ
+    // Công suất tối đa = Số phòng * 8 tiếng * Số ngày
+    const capacityHours = totalRooms * 8 * daysDiff; 
+
+    let occupancyRate = 0;
+    if (capacityHours > 0) {
+        occupancyRate = (bookedHours / capacityHours) * 100;
+    }
+    
+    // Cap lại giới hạn (nếu book ngoài giờ hành chính có thể > 100%)
+    if (occupancyRate > 100) occupancyRate = 100;
+
+    // Làm tròn 1 chữ số thập phân
+    const finalOccupancy = occupancyRate.toFixed(1);
+    const finalVacancy = (100 - occupancyRate).toFixed(1);
+
+    console.log(`📊 Vacancy Debug: ${startSql} -> ${endSql} | Booked: ${bookedHours}h / Cap: ${capacityHours}h (${daysDiff} days) = ${finalOccupancy}%`);
+
+    res.json({ 
+        vacancy: finalVacancy, 
+        occupancy: finalOccupancy 
+    });
+
+  } catch (err) {
+    console.error("❌ Vacancy Error:", err);
+    // Trả về 0 để frontend không bị lỗi NaN
+    res.json({ vacancy: 0, occupancy: 0 });
+  }
+});
+// 1. THỐNG KÊ ĐẶT PHÒNG (Có lọc ngày)
+// ============================================================
+
+// Phòng nào được book nhiều nhất
 app.get('/api/analytic/rooms', async (req, res) => {
   try {
+    const { start, end } = req.query;
+    let timeFilter = "";
+    let params = [];
+
+    // Nếu có lọc ngày
+    if (start && end) {
+        timeFilter = "AND b.start_time BETWEEN ? AND ? + INTERVAL 1 DAY";
+        params = [start, end];
+    }
+
     const [rows] = await db.query(`
       SELECT r.name, COUNT(b.id) as count
       FROM bookings b
       JOIN rooms r ON b.room_id = r.id
+      WHERE 1=1 ${timeFilter}
       GROUP BY r.id
       ORDER BY count DESC
-    `);
+    `, params);
+    
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Ngày nào được book nhiều nhất (MySQL)
+// Số lượng đặt theo ngày
 app.get('/api/analytic/days', async (req, res) => {
   try {
+    const { start, end } = req.query;
+    let whereClause = "";
+    let params = [];
+
+    if (start && end) {
+        whereClause = "WHERE start_time BETWEEN ? AND ? + INTERVAL 1 DAY";
+        params = [start, end];
+    }
+
     const [rows] = await db.query(`
       SELECT DATE(start_time) as day, COUNT(id) as count
       FROM bookings
+      ${whereClause}
       GROUP BY day
-      ORDER BY count DESC
-    `);
+      ORDER BY day ASC
+    `, params);
+
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// Người/phòng ban nào đặt nhiều (MySQL)
+// Khung giờ cao điểm
+app.get('/api/analytic/rooms/hours', async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    let whereClause = "";
+    let params = [];
+
+    if (start && end) {
+        whereClause = "WHERE start_time BETWEEN ? AND ? + INTERVAL 1 DAY";
+        params = [start, end];
+    }
+
+    const [rows] = await db.query(`
+      SELECT HOUR(start_time) AS hour, COUNT(id) AS count
+      FROM bookings
+      ${whereClause}
+      GROUP BY hour
+      ORDER BY hour ASC
+    `, params);
+
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Người/phòng ban nào đặt nhiều
 app.get('/api/analytic/users', async (req, res) => {
   try {
+    const { start, end } = req.query;
+    let timeFilter = "";
+    let params = [];
+
+    if (start && end) {
+        timeFilter = "AND b.start_time BETWEEN ? AND ? + INTERVAL 1 DAY";
+        params = [start, end];
+    }
+
     const [rows] = await db.query(`
       SELECT up.full_name, d.name, COUNT(b.id) as count
       FROM bookings b
       JOIN users u ON b.user_id = u.id
       LEFT JOIN user_profiles up ON u.id = up.user_id
       LEFT JOIN departments d ON u.department_id = d.id
+      WHERE 1=1 ${timeFilter}
       GROUP BY u.id
       ORDER BY count DESC
-    `);
+      LIMIT 10
+    `, params);
+
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
+// ============================================================
+// 2. THỐNG KÊ TRÌNH KÝ (Có lọc ngày)
+// ============================================================
+
+// Trạng thái văn bản
 app.get("/api/analytic/docs/status", async (req, res) => {
   try {
+    const { start, end } = req.query;
+    let whereClause = "";
+    let params = [];
+
+    if (start && end) {
+        whereClause = "WHERE created_at BETWEEN ? AND ? + INTERVAL 1 DAY";
+        params = [start, end];
+    }
+
     const [rows] = await db.query(`
       SELECT status, COUNT(*) AS count
       FROM documents
+      ${whereClause}
       GROUP BY status
-    `);
+    `, params);
+
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Top người ký nhiều nhất (Dựa trên thời gian tạo văn bản hoặc thời gian ký)
+// Ở đây ta lọc theo thời gian văn bản được tạo để đồng bộ
 app.get("/api/analytic/docs/signers", async (req, res) => {
   try {
+    const { start, end } = req.query;
+    let timeFilter = "";
+    let params = [];
+
+    if (start && end) {
+        // Lọc dựa trên bảng document_signers (ví dụ: ngày ký signed_at)
+        // Hoặc join với documents để lấy ngày tạo. Ở đây dùng ngày ký cho chính xác.
+        timeFilter = "WHERE ds.signed_at BETWEEN ? AND ? + INTERVAL 1 DAY";
+        params = [start, end];
+    }
+
     const [rows] = await db.query(`
       SELECT up.full_name, COUNT(ds.document_id) AS count
       FROM document_signers ds
       JOIN users u ON ds.signer_id = u.id
       LEFT JOIN user_profiles up ON up.user_id = u.id
+      ${timeFilter}
+      AND ds.status = 'Đã ký' -- Chỉ đếm những cái đã ký
       GROUP BY ds.signer_id
       ORDER BY count DESC
-    `);
+      LIMIT 10
+    `, params);
 
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+// Xu hướng trình ký theo ngày
 app.get("/api/analytic/docs/days", async (req, res) => {
   try {
+    const { start, end } = req.query;
+    let whereClause = "";
+    let params = [];
+
+    if (start && end) {
+        whereClause = "WHERE created_at BETWEEN ? AND ? + INTERVAL 1 DAY";
+        params = [start, end];
+    }
+
     const [rows] = await db.query(`
       SELECT DATE(created_at) AS day, COUNT(*) AS count
       FROM documents
+      ${whereClause}
       GROUP BY day
       ORDER BY day ASC
-    `);
+    `, params);
 
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ============================================================
+// 3. TỔNG QUAN (KPI & CHART CHUNG)
+// ============================================================
+
 app.get("/api/analytic/overview", async (req, res) => {
   try {
-    // Tổng số cuộc họp
-    const [meetings] = await db.query(`SELECT COUNT(*) AS total FROM bookings`);
+    const { start, end } = req.query;
+    
+    // Tạo 2 bộ lọc riêng cho 2 bảng khác nhau
+    let whereBooking = "";
+    let whereDoc = "";
+    let paramsBooking = [];
+    let paramsDoc = [];
 
-    // Tổng số văn bản
-    const [docs] = await db.query(`SELECT COUNT(*) AS total FROM documents`);
+    if (start && end) {
+        whereBooking = "WHERE start_time BETWEEN ? AND ? + INTERVAL 1 DAY";
+        paramsBooking = [start, end];
 
-    // Số user đang hoạt động
-    const [users] = await db.query(`SELECT COUNT(*) AS total FROM users`);
+        whereDoc = "WHERE created_at BETWEEN ? AND ? + INTERVAL 1 DAY";
+        paramsDoc = [start, end];
+    }
 
-    // Biểu đồ hoạt động hệ thống (cuộc họp + trình ký theo ngày)
-    const [activity] = await db.query(`
+    // 1. KPI Số liệu
+    const [[meetings]] = await db.query(`SELECT COUNT(*) AS total FROM bookings ${whereBooking}`, paramsBooking);
+    const [[docs]] = await db.query(`SELECT COUNT(*) AS total FROM documents ${whereDoc}`, paramsDoc);
+    
+    // User active thì thường tính toàn bộ, không lọc theo ngày (hoặc lọc theo last_login nếu có)
+    const [[users]] = await db.query(`SELECT COUNT(*) AS total FROM users`);
+
+    // 2. Biểu đồ hoạt động (UNION 2 bảng)
+    // Cần inject tham số vào cả 2 câu query con
+    const sqlActivity = `
       SELECT day, SUM(count) AS count FROM (
         SELECT DATE(start_time) AS day, COUNT(*) AS count
         FROM bookings
+        ${whereBooking}
         GROUP BY day
         
         UNION ALL
         
         SELECT DATE(created_at) AS day, COUNT(*) AS count
         FROM documents
+        ${whereDoc}
         GROUP BY day
       ) AS t
       GROUP BY day
       ORDER BY day ASC
-    `);
+    `;
+    
+    // Params phải khớp thứ tự: [start, end] của booking + [start, end] của doc
+    const chartParams = [...paramsBooking, ...paramsDoc];
+    
+    const [activity] = await db.query(sqlActivity, chartParams);
 
     res.json({
-      totalMeetings: meetings[0].total,
-      totalDocuments: docs[0].total,
-      activeUsers: users[0].total,
+      totalMeetings: meetings.total,
+      totalDocuments: docs.total,
+      activeUsers: users.total,
       activity
     });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-app.get('/api/analytic/rooms/hours', async (req, res) => {
-  try {
-    const [rows] = await db.query(`
-      SELECT HOUR(start_time) AS hour, COUNT(id) AS count
-      FROM bookings
-      GROUP BY hour
-      ORDER BY hour
-    `);
-    res.json(rows);
-  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });

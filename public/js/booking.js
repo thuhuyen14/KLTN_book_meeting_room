@@ -260,34 +260,107 @@ document.addEventListener('DOMContentLoaded', async () => {
                     container: 'body'
                 });
             },
-        eventClick: info => {
-            const modalEl = document.getElementById('eventModal');
-            document.getElementById('modalTitle').textContent = info.event.title;
-            document.getElementById('modalRoom').textContent = info.event.extendedProps.room;
-            document.getElementById('modalBookedBy').textContent = info.event.extendedProps.bookedBy;
-            document.getElementById('modalStart').textContent = info.event.start.toLocaleString();
-            document.getElementById('modalEnd').textContent = info.event.end.toLocaleString();
+            eventClick: async (info) => {
+            const modalEl = new bootstrap.Modal(document.getElementById('eventModal'));
+            const $body = document.getElementById('modalBodyContent'); // Dùng getElementById cho thuần
             const btnCreateDoc = document.getElementById('btnCreateDocFromBooking');
-            if (btnCreateDoc) {
-                const bookingId = info.event.id; // Lấy ID cuộc họp
-                const startTime = info.event.start;
-                const now = new Date();
-                
-                // Tính khoảng cách ngày: (Ngày họp - Hôm nay)
-                // Kết quả ra số ngày (âm là quá khứ, dương là tương lai)
-                const diffTime = startTime - now;
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-                // Logic: Chỉ hiện nếu trong vòng 30 ngày trước hoặc 7 ngày tới
-                if (diffDays >= -14 && diffDays <= 14) {
-                    btnCreateDoc.style.display = 'inline-block'; // Hiện nút
-                    // Gắn link chuyển sang trang Documents kèm ID
-                    btnCreateDoc.href = `documents.html?create_from_booking=${bookingId}`;
-                } else {
-                    btnCreateDoc.style.display = 'none'; // Ẩn nút nếu quá hạn
+            // 1. Reset giao diện về trạng thái "Đang tải"
+            $body.innerHTML = '<div class="d-flex justify-content-center align-items-center py-5 text-muted"><div class="spinner-border spinner-border-sm me-2"></div> Đang tải chi tiết...</div>';
+            btnCreateDoc.style.display = 'none'; // Ẩn nút trước
+            modalEl.show(); // Hiện modal ngay để người dùng thấy
+
+            try {
+                const bookingId = info.event.id;
+                
+                // 2. Gọi API lấy chi tiết (Để lấy Teams & Participants)
+                const res = await fetch(`/api/bookings/${bookingId}/detail`);
+                if (!res.ok) throw new Error('Không tải được chi tiết');
+                const b = await res.json();
+
+                // 3. Format dữ liệu hiển thị
+                const dateStr = new Date(b.start_time).toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+                const timeStr = `${new Date(b.start_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})} - ${new Date(b.end_time).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}`;
+                
+                // Xử lý hiển thị danh sách người tham gia
+                let participantsHtml = '';
+                
+                // Teams (Hiển thị dạng Badge màu xanh nhạt)
+                if (b.teams && b.teams.length) {
+                    participantsHtml += b.teams.map(t => 
+                        `<span class="badge bg-info text-dark me-1 mb-1 border border-info-subtle"><i class="bi bi-people-fill"></i> ${t.name}</span>`
+                    ).join(' ');
                 }
+                
+                // Users (Hiển thị text thường)
+                if (b.participants && b.participants.length) {
+                    const names = b.participants.map(p => p.full_name).join(', ');
+                    if (participantsHtml) participantsHtml += '<div class="mb-1"></div>'; // Xuống dòng nếu có cả team
+                    participantsHtml += `<small class="text-dark"><i class="bi bi-person"></i> ${names}</small>`;
+                }
+                
+                if (!participantsHtml) participantsHtml = '<span class="text-muted fst-italic small">Chưa cập nhật người tham dự</span>';
+
+                // 4. Render HTML đẹp vào Modal Body
+                const htmlContent = `
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item py-3">
+                            <small class="text-uppercase text-muted fw-bold" style="font-size:0.7rem">Chủ đề</small>
+                            <h5 class="mb-0 text-primary fw-bold mt-1">${b.title}</h5>
+                        </div>
+
+                        <div class="list-group-item py-3">
+                            <div class="row g-3">
+                                <div class="col-6">
+                                    <small class="text-muted d-block mb-1"><i class="bi bi-calendar3"></i> Thời gian</small>
+                                    <div class="fw-medium">${dateStr}</div>
+                                    <div class="text-primary fw-bold fs-5">${timeStr}</div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted d-block mb-1"><i class="bi bi-geo-alt-fill text-danger"></i> Phòng họp</small>
+                                    <div class="fw-bold fs-6">${b.room_name || 'Chưa xác định'}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="list-group-item py-3">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-light rounded-circle p-2 me-3 text-primary border">
+                                    <i class="bi bi-person-workspace fs-4"></i>
+                                </div>
+                                <div>
+                                    <small class="text-muted d-block">Người tổ chức</small>
+                                    <div class="fw-bold text-dark">${b.booked_by || 'Admin'}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="list-group-item py-3 bg-light bg-opacity-25">
+                            <small class="text-muted fw-bold mb-2 d-block text-uppercase" style="font-size:0.7rem">Thành phần tham dự</small>
+                            <div>${participantsHtml}</div>
+                        </div>
+                    </div>
+                `;
+                
+                $body.innerHTML = htmlContent;
+
+                // 5. Logic hiện nút "Lập văn bản" (Giữ nguyên logic cũ của bạn)
+                const startTime = new Date(b.start_time);
+                const now = new Date();
+                const diffDays = Math.ceil((startTime - now) / (1000 * 60 * 60 * 24));
+
+                // Chỉ hiện nếu trong vòng 14 ngày (như code bạn gửi)
+                if (diffDays >= -14 && diffDays <= 14) {
+                    btnCreateDoc.style.display = 'inline-block';
+                    btnCreateDoc.href = `documents.html?create_from_booking=${b.id}`;
+                } else {
+                    btnCreateDoc.style.display = 'none';
+                }
+
+            } catch (e) {
+                console.error(e);
+                $body.innerHTML = `<div class="alert alert-danger m-3 border-0">❌ Lỗi tải thông tin chi tiết: ${e.message}</div>`;
             }
-            new bootstrap.Modal(modalEl).show();
         }
     });
     calendar.render();

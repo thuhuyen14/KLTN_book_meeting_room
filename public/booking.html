@@ -143,29 +143,33 @@
      </div>
   </footer>
 
-  <div class="modal fade" id="eventModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0 shadow">
-        <div class="modal-header bg-primary text-white">
-          <h5 class="modal-title fw-bold" id="modalTitle"></h5>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+<div class="modal fade" id="eventModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-calendar-check me-2"></i>Chi tiết cuộc họp
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body p-0" id="modalBodyContent">
+        <div class="d-flex justify-content-center align-items-center py-5 text-muted">
+           <div class="spinner-border spinner-border-sm me-2"></div> Đang tải thông tin...
         </div>
-        <div class="modal-body p-4">
-            <p><strong>Phòng:</strong> <span id="modalRoom"></span></p>
-            <p><strong>Người đặt:</strong> <span id="modalBookedBy"></span></p>
-            <p><strong>Bắt đầu:</strong> <span id="modalStart"></span></p>
-            <p><strong>Kết thúc:</strong> <span id="modalEnd"></span></p>
-        </div>
-        <div class="modal-footer d-flex justify-content-between">
-          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
-          
-          <a id="btnCreateDocFromBooking" href="#" class="btn btn-success btn-sm">
-              <i class="bi bi-file-earmark-plus"></i> Lập văn bản trình ký
-          </a>
-        </div>
+      </div>
+
+      <div class="modal-footer bg-light d-flex justify-content-between">
+        <button type="button" class="btn btn-secondary btn-sm px-3" data-bs-dismiss="modal">Đóng</button>
+        
+        <a id="btnCreateDocFromBooking" href="#" class="btn btn-success btn-sm shadow-sm" style="display:none">
+            <i class="bi bi-file-earmark-plus-fill"></i> Lập văn bản trình ký
+        </a>
       </div>
     </div>
   </div>
+</div>
 
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script src="js/navbar.js"></script>
