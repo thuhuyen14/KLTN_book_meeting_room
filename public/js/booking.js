@@ -44,25 +44,30 @@ async function loadUsers() {
     try {
         allUsers = await api('/users');
 
-        if (role === 'User') {
-            const userId = localStorage.getItem('id');
-            const opt = document.createElement('option');
-            const user = allUsers.find(u => String(u.id) === String(userId));
-
-            const teamName = user?.team || 'N/A';
-            const department = user?.department || 'N/A';
-            opt.value = userId;
-            opt.textContent = `${user?.full_name || 'N/A'} (${teamName}) - ${department}`;
-            userSelect.appendChild(opt);
-            userSelect.disabled = true;
-        } else {
+if (role === 'Admin') {
+            // === Dành cho Admin: Load full danh sách để chọn ===
             allUsers.forEach(u => {
                 const opt = document.createElement('option');
                 opt.value = u.id;
                 opt.textContent = `${u.full_name} (${u.team}) - ${u.department}`;
                 userSelect.appendChild(opt);
             });
-            userSelect.disabled = false;
+            userSelect.disabled = false; // Mở khóa
+        } else {
+            // === Dành cho User & Manager: Chỉ hiện tên mình và Khóa lại ===
+            const userId = localStorage.getItem('id');
+            const user = allUsers.find(u => String(u.id) === String(userId));
+            const opt = document.createElement('option');
+            
+            const teamName = user?.team || 'N/A';
+            const department = user?.department || 'N/A';
+            
+            opt.value = userId;
+            opt.textContent = `${user?.full_name || 'N/A'} (${teamName}) - ${department}`;
+            opt.selected = true;
+            
+            userSelect.appendChild(opt);
+            userSelect.disabled = true; // Khóa chặt
         }
 
         allUsers.forEach(u => {

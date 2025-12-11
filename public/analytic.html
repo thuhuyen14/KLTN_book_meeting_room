@@ -129,7 +129,16 @@
                 <div class="card-body">
                     <div class="row no-gutters align-items-center">
                         <div class="col mr-2">
-                            <div class="stat-title text-warning">Công suất phòng</div>
+                            <div class="stat-title text-warning d-flex align-items-center mb-1">
+                                Công suất phòng
+                                <i class="bi bi-info-circle-fill ms-2 text-muted" 
+                                style="cursor: pointer; font-size: 0.9rem;" 
+                                data-bs-toggle="tooltip" 
+                                data-bs-html="true"
+                                title="<b>Công thức:</b> (Tổng giờ đã đặt / Tổng năng lực) x 100.<br><br><em>Ví dụ: Có 10 phòng, làm 8h/ngày. Tổng năng lực 1 ngày = 80 giờ. Nếu đặt 40 giờ -> Công suất 50%.</em>">
+                                </i>
+                            </div>
+
                             <div class="row no-gutters align-items-center">
                                 <div class="col-auto">
                                     <div class="stat-value me-3" id="kpiOccupancy">0%</div>
@@ -221,10 +230,10 @@
     </div>
   </main>
 
-  <footer class="bg-white sticky-footer p-3 shadow-sm mt-5">
+  <footer class="bg-dark text-white py-4 mt-5">
      <div class="container text-center">
-        <img src="images/dnse_logo_notext.png" alt="DNSE" style="height:25px; opacity:0.8">
-        <div class="small text-muted mt-1">&copy; 2025 DNSE Analytics Dashboard</div>
+        <img src="images/dnse_logo_notext.png" alt="DNSE" style="height: 30px; opacity: 0.8;" class="mb-2">
+        <p class="small text-white-50 mb-0">&copy; 2025 Công ty Cổ phần Chứng khoán DNSE. All rights reserved.</p>
      </div>
   </footer>
 
