@@ -662,13 +662,20 @@ app.put('/api/users/:id', async (req, res) => {
 // CREATE template (POST)
 // ------------------------
 app.post('/api/document_templates', async (req, res) => {
+  // Frontend gửi lên: name, description, content, file_path, created_by
   const { name, description, content, file_path, created_by } = req.body;
+  
   const conn = await db.getConnection();
-
   try {
     await conn.beginTransaction();
 
-    // --- Thêm vào bảng ---
+    // 1. Kiểm tra xem User 'created_by' có tồn tại chưa (Để tránh lỗi Foreign Key)
+    const [userCheck] = await conn.query('SELECT id FROM users WHERE id = ?', [created_by]);
+    if (userCheck.length === 0) {
+      throw new Error(`User ID '${created_by}' không tồn tại trong bảng users. Vui lòng tạo nhân viên này trước.`);
+    }
+
+    // 2. Thêm vào bảng
     const [result] = await conn.query(`
       INSERT INTO document_templates
         (name, description, content, file_path, created_by, created_at)
@@ -678,12 +685,12 @@ app.post('/api/document_templates', async (req, res) => {
       description || null,
       content || null,
       file_path || null,
-      created_by // phải là ID hợp lệ trong bảng users
+      created_by 
     ]);
 
-    const newId = result.insertId; // id tự tăng
+    const newId = result.insertId;
 
-    // --- Audit log ---
+    // 3. Audit log
     await conn.query(`
       INSERT INTO audit_log
         (entity_type, entity_id, action, old_data, new_data, updated_by)
@@ -699,16 +706,87 @@ app.post('/api/document_templates', async (req, res) => {
 
     await conn.commit();
     res.json({ success: true, id: newId });
+
   } catch (err) {
     await conn.rollback();
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error("Lỗi API POST document_templates:", err);
+    // Trả về đúng message lỗi để Frontend alert ra
+    res.status(500).send(err.message); 
   } finally {
     conn.release();
   }
 });
 
 // ------------------------
+// CẬP NHẬT (PUT) - Sửa lỗi biến updated_by
+// ------------------------
+app.put('/api/document_templates/:id', async (req, res) => {
+  const { id } = req.params;
+  
+  // Frontend gửi 'created_by' (ID người đang login), ta dùng nó làm người sửa (updater)
+  const { name, description, content, file_path, created_by } = req.body;
+  
+  // Gán updater chính là người đang thao tác
+  const updater = created_by; 
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // 1. Lấy dữ liệu cũ
+    const [oldRows] = await conn.query(
+      `SELECT * FROM document_templates WHERE id = ? LIMIT 1`,
+      [id]
+    );
+    if (!oldRows.length) {
+      await conn.rollback();
+      return res.status(404).json({ error: 'Template not found' });
+    }
+    const oldData = oldRows[0];
+
+    // 2. Update
+    await conn.query(
+      `
+      UPDATE document_templates
+      SET name = ?, description = ?, content = ?, file_path = ?
+      WHERE id = ?
+      `,
+      [
+        name,
+        description || null,
+        content || null,
+        file_path || null,
+        id
+      ]
+    );
+
+    // 3. Audit log (Sửa lỗi: dùng biến updater thay vì updated_by bị undefined)
+    await conn.query(
+      `
+      INSERT INTO audit_log
+        (entity_type, entity_id, action, old_data, new_data, updated_by)
+      VALUES (?, ?, ?, ?, ?, ?)
+      `,
+      [
+        'document_template',
+        id,
+        'update',
+        JSON.stringify(oldData),
+        JSON.stringify({ name, description, content, file_path }),
+        updater // Dùng biến này mới có dữ liệu
+      ]
+    );
+
+    await conn.commit();
+    res.json({ success: true });
+  } catch (err) {
+    await conn.rollback();
+    console.error("Lỗi API PUT document_templates:", err);
+    res.status(500).send(err.message);
+  } finally {
+    conn.release();
+  }
+});
 // GET all document templates
 // ------------------------
 app.get('/api/document_templates', async (req, res) => {
@@ -757,62 +835,48 @@ app.get('/api/document_templates/:id', async (req, res) => {
 });
 
 // ------------------------
-// UPDATE document template
+// XÓA (DELETE) Document Template
 // ------------------------
-app.put('/api/document_templates/:id', async (req, res) => {
+app.delete('/api/document_templates/:id', async (req, res) => {
   const { id } = req.params;
-  const { name, description, content, file_path, updated_by } = req.body;
-
   const conn = await db.getConnection();
+  
   try {
     await conn.beginTransaction();
 
-    // Lấy dữ liệu cũ để ghi audit
-    const [oldRows] = await conn.query(
-      `SELECT * FROM document_templates WHERE id = ? LIMIT 1`,
-      [id]
-    );
-    if (!oldRows.length) {
+    // 1. (Tuỳ chọn) Lấy thông tin cũ để ghi log trước khi xóa
+    const [oldRows] = await conn.query('SELECT * FROM document_templates WHERE id = ?', [id]);
+    const oldData = oldRows[0] || null;
+
+    // 2. Xóa trong bảng document_templates
+    const [result] = await conn.query('DELETE FROM document_templates WHERE id = ?', [id]);
+
+    if (result.affectedRows === 0) {
       await conn.rollback();
-      return res.status(404).json({ error: 'Template not found' });
+      return res.status(404).json({ error: 'Không tìm thấy mẫu văn bản để xóa' });
     }
-    const oldData = oldRows[0];
 
-    // Update
-    await conn.query(
-      `
-      UPDATE document_templates
-      SET name = ?, description = ?, content = ?, file_path = ?
-      WHERE id = ?
-      `,
-      [
-        name,
-        description || null,
-        content || null,
-        file_path || null,
-        id
-      ]
-    );
-
-    // Audit log
-    await conn.query(
-      `
-      INSERT INTO audit_log
-        (entity_type, entity_id, action, old_data, new_data, updated_by)
-      VALUES (?, ?, ?, ?, ?, ?)
-      `,
-      [
-        'document_template',
-        id,
-        'update',
-        JSON.stringify(oldData),
-        JSON.stringify({ name, description, content, file_path }),
-        updated_by
-      ]
-    );
+    // 3. Ghi Audit Log (nếu cần)
+    // Lưu ý: api DELETE thường không có body nên không biết ai xóa (updated_by), 
+    // trừ khi bạn gửi user id qua query param hoặc token. Tạm thời để null hoặc 'system'.
+    if (oldData) {
+        await conn.query(`
+          INSERT INTO audit_log
+            (entity_type, entity_id, action, old_data, new_data, updated_by)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `, [
+          'document_template',
+          id,
+          'delete',
+          JSON.stringify(oldData),
+          null,
+          'admin' // Hoặc lấy từ req.user.id nếu có middleware xác thực
+        ]);
+    }
 
     await conn.commit();
     res.json({ success: true });
+
   } catch (err) {
     await conn.rollback();
     console.error(err);
@@ -821,7 +885,6 @@ app.put('/api/document_templates/:id', async (req, res) => {
     conn.release();
   }
 });
-
 
 // Danh sách phòng ban
 app.get('/api/departments', async (req, res) => {

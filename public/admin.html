@@ -3,382 +3,521 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Quản trị - DNSE</title>
+  <title>Quản trị hệ thống - DNSE</title>
 
-  <!-- Bootstrap & icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
 
-  <!-- Tom Select (nice selects) -->
   <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 
-  <link rel="stylesheet" href="css/style.css">
-  <!-- dùng cho template modals -->
-  <!-- Quill CSS -->
   <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
-  <!-- Quill JS -->
   <script src="https://cdn.quilljs.com/1.3.7/quill.js"></script>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.2/mammoth.browser.min.js"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+
   <style>
-    /* Small styling for modern look */
-    .avatar-sm { width:36px; height:36px; border-radius:50%; object-fit:cover; }
-    .search-row { gap: .5rem; align-items:center; }
-    .filter-chip { margin-right: .4rem; margin-bottom: .25rem; }
-    .table-avatar { display:flex; gap:.6rem; align-items:center; }
-    .table-avatar strong { line-height:1; }
-    .pagination-container { display:flex; justify-content:flex-end; align-items:center; gap:.5rem; }
-    .truncate { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:inline-block; vertical-align:middle; }
+    body {
+        font-family: 'Inter', sans-serif;
+        background-color: #f8f9fa;
+    }
+    /* Admin Card Style */
+    .admin-card {
+        border: none;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+        border-radius: 0.5rem;
+    }
+    .admin-card .card-header {
+        background-color: #fff;
+        border-bottom: 1px solid #e3e6f0;
+        padding-top: 1rem;
+        padding-bottom: 0; /* Để tab dính vào dưới */
+    }
+    
+    /* Tabs Style */
+    .nav-tabs .nav-link {
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: #6c757d;
+        font-weight: 500;
+        padding: 10px 20px;
+    }
+    .nav-tabs .nav-link:hover {
+        color: #4e73df;
+        border-color: transparent;
+    }
+    .nav-tabs .nav-link.active {
+        color: #4e73df;
+        border: none;
+        border-bottom: 2px solid #4e73df;
+        background: none;
+    }
+
+    /* Table Improvements */
+    .table thead th {
+        background-color: #f8f9fc;
+        color: #4e73df;
+        border-bottom: 2px solid #e3e6f0;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.8rem;
+    }
+    .avatar-sm { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; border: 1px solid #dee2e6;}
+    .truncate { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: middle; }
+    
+    /* Search Bar */
+    .search-row { gap: 10px; }
   </style>
 </head>
 <body>
-  <!-- Navbar -->
+
   <div id="navbar-placeholder"></div>
 
-  <main class="container my-4">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h2 class="mb-0">Quản trị hệ thống</h2>
-      <div class="d-flex">
-        <button id="btn-create-room" class="btn btn-outline-primary me-2">+ Thêm phòng</button>
-        <button id="btn-create-user" class="btn btn-success me-2">+ Thêm nhân viên</button>
-        <button id="btn-create-doc" class="btn btn-outline-info">+ Thêm mẫu văn bản</button>
+  <main class="container-xl my-4">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h3 class="fw-bold text-dark mb-1">Quản trị hệ thống</h3>
+        <p class="text-muted small mb-0">Quản lý tài nguyên, nhân sự và mẫu văn bản</p>
+      </div>
+      
+      <div class="d-flex gap-2">
+        <button id="btn-create-room" class="btn btn-primary shadow-sm">
+            <i class="bi bi-door-open-fill me-1"></i> Thêm phòng
+        </button>
+        <button id="btn-create-user" class="btn btn-success shadow-sm">
+            <i class="bi bi-person-plus-fill me-1"></i> Thêm nhân viên
+        </button>
+        <button id="btn-create-doc" class="btn btn-info text-white shadow-sm">
+            <i class="bi bi-file-earmark-plus-fill me-1"></i> Thêm mẫu
+        </button>
       </div>
     </div>
 
-
-    <!-- Tabs -->
-    <ul class="nav nav-tabs" id="adminTabs" role="tablist">
-      <li class="nav-item"><button class="nav-link active" id="rooms-tab" data-bs-toggle="tab" data-bs-target="#roomsTab">Phòng</button></li>
-      <li class="nav-item"><button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#usersTab">Nhân viên</button></li>
-      <li class="nav-item"><button class="nav-link" id="templates-tab" data-bs-toggle="tab" data-bs-target="#templatesTab">Mẫu văn bản</button></li>
-    </ul>
-
-    <div class="tab-content mt-3">
-      <!-- Rooms -->
-      <div class="tab-pane fade show active" id="roomsTab">
-        <div class="mb-3 d-flex search-row">
-          <input id="rooms-search" class="form-control" placeholder="Tìm phòng theo tên, mã..." />
-          <div class="ms-auto">
-            <select id="rooms-per-page" class="form-select">
-              <option value="10">10 / trang</option>
-              <option value="25">25 / trang</option>
-              <option value="50">50 / trang</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="table-responsive">
-          <table class="table table-hover align-middle" id="roomsTable">
-            <thead class="table-dark">
-              <tr><th>Mã</th><th>Ảnh</th><th>Tên</th><th>Loại</th><th>Vị trí</th><th>Sức chứa</th><th>Thao tác</th></tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-
-        <div class="d-flex justify-content-between mt-2">
-          <div id="rooms-stats" class="text-muted"></div>
-          <div class="pagination-container">
-            <nav><ul id="rooms-pagination" class="pagination pagination-sm mb-0"></ul></nav>
-          </div>
-        </div>
+    <div class="card admin-card">
+      <div class="card-header">
+        <ul class="nav nav-tabs card-header-tabs" id="adminTabs" role="tablist">
+          <li class="nav-item">
+            <button class="nav-link active" id="rooms-tab" data-bs-toggle="tab" data-bs-target="#roomsTab" type="button" role="tab">
+                <i class="bi bi-buildings me-2"></i>Phòng họp
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#usersTab" type="button" role="tab">
+                <i class="bi bi-people me-2"></i>Nhân sự
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="nav-link" id="templates-tab" data-bs-toggle="tab" data-bs-target="#templatesTab" type="button" role="tab">
+                <i class="bi bi-file-text me-2"></i>Mẫu văn bản
+            </button>
+          </li>
+        </ul>
       </div>
 
-      <!-- Users -->
-      <div class="tab-pane fade" id="usersTab">
-        <div class="mb-3 d-flex search-row">
-          <input id="users-search" class="form-control" placeholder="Tìm nhân viên theo tên, email, ID..." />
-          <select id="filter-team" class="form-select ms-2" style="width:200px"></select>
-          <select id="users-per-page" class="form-select ms-auto" style="width:110px">
-            <option value="10">10 / trang</option>
-            <option value="25">25 / trang</option>
-            <option value="50">50 / trang</option>
-          </select>
-        </div>
+      <div class="card-body p-4">
+        <div class="tab-content">
+          
+          <div class="tab-pane fade show active" id="roomsTab" role="tabpanel">
+            <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 search-row">
+                <div class="d-flex flex-grow-1" style="max-width: 400px;">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                        <input id="rooms-search" class="form-control border-start-0 ps-0" placeholder="Tìm phòng theo tên, mã..." />
+                    </div>
+                </div>
+                <div>
+                   <select id="rooms-per-page" class="form-select form-select-sm">
+                     <option value="10">10 dòng / trang</option>
+                     <option value="25">25 dòng / trang</option>
+                     <option value="50">50 dòng / trang</option>
+                   </select>
+                </div>
+            </div>
 
-        <div class="table-responsive">
-          <table class="table table-hover align-middle" id="usersTable">
-            <thead class="table-light">
-              <tr>
-                <th>Avatar</th><th>ID</th><th>Tên</th><th>Email</th><th>Team</th><th>Phòng ban</th><th>Chức vụ</th><th>Chi nhánh</th><th>Role</th><th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle" id="roomsTable">
+                <thead>
+                  <tr>
+                      <th style="width: 10%">Mã</th>
+                      <th style="width: 10%">Ảnh</th>
+                      <th style="width: 20%">Tên</th>
+                      <th style="width: 20%">Loại</th>
+                      <th style="width: 20%">Vị trí</th>
+                      <th style="width: 10%">Sức chứa</th>
+                      <th style="width: 10%" class="text-end">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
 
-        <div class="d-flex justify-content-between mt-2">
-          <div id="users-stats" class="text-muted"></div>
-          <div class="pagination-container">
-            <nav><ul id="users-pagination" class="pagination pagination-sm mb-0"></ul></nav>
+            <div class="d-flex justify-content-between align-items-center mt-3 border-top pt-3">
+              <div id="rooms-stats" class="text-muted small"></div>
+              <nav><ul id="rooms-pagination" class="pagination pagination-sm mb-0"></ul></nav>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Templates -->
-       <!-- Document Templates -->
-      <div class="tab-pane fade" id="templatesTab">
-        <div class="mb-3 d-flex search-row">
-          <input id="docs-search" class="form-control" placeholder="Tìm mẫu theo tên..." />
-          <select id="docs-per-page" class="form-select ms-auto" style="width:110px">
-            <option value="10">10 / trang</option>
-            <option value="25">25 / trang</option>
-            <option value="50">50 / trang</option>
-          </select>
-        </div>
+          <div class="tab-pane fade" id="usersTab" role="tabpanel">
+            <div class="d-flex flex-wrap align-items-center mb-3 search-row">
+                <div class="input-group" style="max-width: 350px;">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input id="users-search" class="form-control border-start-0 ps-0" placeholder="Tìm nhân viên..." />
+                </div>
+                <div style="min-width: 200px;">
+                     <select id="filter-team" class="form-select"></select>
+                </div>
+                <div class="ms-auto">
+                    <select id="users-per-page" class="form-select form-select-sm">
+                        <option value="10">10 / trang</option>
+                        <option value="25">25 / trang</option>
+                        <option value="50">50 / trang</option>
+                    </select>
+                </div>
+            </div>
 
-        <div class="table-responsive">
-          <table class="table table-hover align-middle" id="docsTable">
-            <thead class="table-light">
-              <tr>
-                <th>ID</th><th>Tên mẫu</th><th>Mô tả</th><th>Người tạo</th><th>Ngày tạo</th><th>Thao tác</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle" id="usersTable">
+                <thead>
+                  <tr>
+                    <th>Avatar</th>
+                    <th>ID</th>
+                    <th>Tên</th>
+                    <th>Email</th>
+                    <th>Team</th>
+                    <th>Phòng ban</th>
+                    <th>Chức vụ</th>
+                    <th>Chi nhánh</th>
+                    <th>Role</th>
+                    <th class="text-end">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
 
-        <div class="d-flex justify-content-between mt-2">
-          <div id="docs-stats" class="text-muted"></div>
-          <div class="pagination-container">
-            <nav><ul id="docs-pagination" class="pagination pagination-sm mb-0"></ul></nav>
+            <div class="d-flex justify-content-between align-items-center mt-3 border-top pt-3">
+              <div id="users-stats" class="text-muted small"></div>
+              <nav><ul id="users-pagination" class="pagination pagination-sm mb-0"></ul></nav>
+            </div>
           </div>
-        </div>
-      </div>
-    </div>
-  </main>
 
-  <!-- FOOTER -->
+          <div class="tab-pane fade" id="templatesTab" role="tabpanel">
+             <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 search-row">
+                <div class="input-group" style="max-width: 400px;">
+                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+                    <input id="docs-search" class="form-control border-start-0 ps-0" placeholder="Tìm mẫu văn bản..." />
+                </div>
+                <div>
+                   <select id="docs-per-page" class="form-select form-select-sm">
+                     <option value="10">10 / trang</option>
+                     <option value="25">25 / trang</option>
+                     <option value="50">50 / trang</option>
+                   </select>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle" id="docsTable">
+                <thead>
+                  <tr>
+                    <th style="width: 5%">ID</th>
+                    <th style="width: 25%">Tên mẫu</th>
+                    <th style="width: 30%">Mô tả</th>
+                    <th style="width: 15%">Người tạo</th>
+                    <th style="width: 15%">Ngày tạo</th>
+                    <th style="width: 10%" class="text-end">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-3 border-top pt-3">
+              <div id="docs-stats" class="text-muted small"></div>
+              <nav><ul id="docs-pagination" class="pagination pagination-sm mb-0"></ul></nav>
+            </div>
+          </div>
+
+        </div> </div> </div> </main>
+
   <footer class="bg-dark text-white py-4 mt-5">
      <div class="container text-center">
         <img src="images/dnse_logo_notext.png" alt="DNSE" style="height: 30px; opacity: 0.8;" class="mb-2">
         <p class="small text-white-50 mb-0">&copy; 2025 Công ty Cổ phần Chứng khoán DNSE. All rights reserved.</p>
      </div>
   </footer>
-  <!-- MODAL: Room Add/Edit (shared) -->
+
   <div class="modal fade" id="modalRoom" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title" id="modalRoomTitle"></h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body">
+        <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title" id="modalRoomTitle">Thông tin phòng họp</h5>
+            <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body bg-light">
           <input type="hidden" id="roomId">
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label class="form-label">Mã phòng</label>
-              <input id="room_code" class="form-control" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Tên phòng</label>
-              <input id="room_name" class="form-control" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Loại phòng</label>
-              <select id="room_type" class="form-select"></select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Vị trí</label>
-              <select id="room_location" class="form-select"></select>
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Sức chứa</label>
-              <input id="room_capacity" type="number" class="form-control" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">URL ảnh</label>
-              <input id="room_image" class="form-control" placeholder="https://... hoặc để trống nếu upload file" />
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label">Tải ảnh lên</label>
-              <input type="file" id="room_image_file" accept="image/*" class="form-control">
-            </div>
-            <div class="col-12">
-              <label class="form-label">Mô tả</label>
-              <textarea id="room_description" class="form-control" rows="3"></textarea>
-            </div>
+          <div class="card shadow-sm border-0">
+             <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label fw-bold small">Mã phòng <span class="text-danger">*</span></label>
+                      <input id="room_code" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-bold small">Tên phòng <span class="text-danger">*</span></label>
+                      <input id="room_name" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-bold small">Loại phòng</label>
+                      <select id="room_type" class="form-select"></select>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-bold small">Vị trí</label>
+                      <select id="room_location" class="form-select"></select>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-bold small">Sức chứa</label>
+                      <input id="room_capacity" type="number" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label fw-bold small">Tải ảnh lên</label>
+                      <input type="file" id="room_image_file" accept="image/*" class="form-control">
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label fw-bold small">URL ảnh (Tuỳ chọn)</label>
+                      <input id="room_image" class="form-control" placeholder="https://..." />
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label fw-bold small">Mô tả</label>
+                      <textarea id="room_description" class="form-control" rows="3"></textarea>
+                    </div>
+                  </div>
+             </div>
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-          <button id="saveRoom" class="btn btn-primary">Lưu</button>
+          <button class="btn btn-light border" data-bs-dismiss="modal">Hủy bỏ</button>
+          <button id="saveRoom" class="btn btn-primary px-4">Lưu thông tin</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- MODAL: User Add/Edit -->
   <div class="modal fade" id="modalUser" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title" id="modalUserTitle"></h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-        <div class="modal-body">
+        <div class="modal-header bg-success text-white">
+            <h5 class="modal-title" id="modalUserTitle">Thông tin nhân sự</h5>
+            <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body bg-light">
           <input type="hidden" id="user_id">
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label">Mã nhân viên (ID)</label>
-              <input id="user_code" class="form-control" placeholder="E101" />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Username</label>
-              <input id="user_username" class="form-control" />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Mật khẩu (mặc định)</label>
-              <input id="user_password" type="password" class="form-control" placeholder="mật khẩu tạm thời" />
-            </div>
-
-            <div class="col-md-6">
-              <label class="form-label">Họ & tên</label>
-              <input id="user_fullname" class="form-control" />
-            </div>
-            <div class="col-md-6">
-              <label class="form-label">Email</label>
-              <input id="user_email" type="email" class="form-control" />
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">Team</label>
-              <select id="user_team" class="form-select"></select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Phòng ban</label>
-              <select id="user_dept" class="form-select"></select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Chức vụ</label>
-              <select id="user_job" class="form-select"></select>
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">Chi nhánh</label>
-              <select id="user_branch" class="form-select"></select>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Số điện thoại</label>
-              <input id="user_phone" class="form-control" />
-            </div>
-            <div class="col-md-4">
-              <label class="form-label">Ngày sinh</label>
-              <input id="user_dob" type="date" class="form-control" />
-            </div>
-
-            <div class="col-md-4">
-              <label class="form-label">Role</label>
-              <select id="user_role" class="form-select">
-                <option value="user">user</option>
-                <option value="admin">admin</option>
-                <option value="manager">manager</option>
-              </select>
-            </div>
-
-            <div class="col-md-8">
-              <label class="form-label">Avatar URL</label>
-              <input id="user_avatar" class="form-control" placeholder="https://..." />
+          
+          <div class="card shadow-sm border-0 mb-3">
+            <div class="card-body">
+                <h6 class="text-success fw-bold text-uppercase small mb-3 border-bottom pb-2">1. Thông tin tài khoản</h6>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                      <label class="form-label small fw-bold">ID Nhân viên</label>
+                      <input id="user_code" class="form-control" placeholder="E101" />
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label small fw-bold">Username</label>
+                      <input id="user_username" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label small fw-bold">Password</label>
+                      <input id="user_password" type="password" class="form-control" placeholder="Mặc định nếu trống" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-bold">Vai trò (Role)</label>
+                        <select id="user_role" class="form-select">
+                          <option value="user">User</option>
+                          <option value="manager">Manager</option>
+                          <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                </div>
             </div>
           </div>
+
+          <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h6 class="text-success fw-bold text-uppercase small mb-3 border-bottom pb-2">2. Thông tin cá nhân & Công việc</h6>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label small fw-bold">Họ & Tên</label>
+                      <input id="user_fullname" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label small fw-bold">Email</label>
+                      <input id="user_email" type="email" class="form-control" />
+                    </div>
+
+                    <div class="col-md-4">
+                      <label class="form-label small fw-bold">Team</label>
+                      <select id="user_team" class="form-select"></select>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label small fw-bold">Phòng ban</label>
+                      <select id="user_dept" class="form-select"></select>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label small fw-bold">Chức vụ</label>
+                      <select id="user_job" class="form-select"></select>
+                    </div>
+
+                    <div class="col-md-4">
+                      <label class="form-label small fw-bold">Chi nhánh</label>
+                      <select id="user_branch" class="form-select"></select>
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label small fw-bold">Điện thoại</label>
+                      <input id="user_phone" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label small fw-bold">Ngày sinh</label>
+                      <input id="user_dob" type="date" class="form-control" />
+                    </div>
+                    <div class="col-12">
+                      <label class="form-label small fw-bold">Avatar URL</label>
+                      <input id="user_avatar" class="form-control" placeholder="https://..." />
+                    </div>
+                </div>
+            </div>
+          </div>
+
         </div>
         <div class="modal-footer">
-          <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-          <button id="saveUser" class="btn btn-primary">Lưu</button>
+          <button class="btn btn-light border" data-bs-dismiss="modal">Hủy</button>
+          <button id="saveUser" class="btn btn-success px-4">Lưu nhân viên</button>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- CONFIRM DELETE modal -->
-  <div class="modal fade" id="confirmDeleteModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-    <div class="modal-header"><h5 class="modal-title">Xác nhận</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body"><p id="confirmDeleteText">Bạn có chắc?</p></div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-      <button id="confirmDeleteBtn" class="btn btn-danger">Xóa</button>
-    </div>
-  </div></div></div>
-
-  <!-- RESET PASSWORD modal -->
-  <div class="modal fade" id="resetPassModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
-    <div class="modal-header"><h5 class="modal-title">Đặt lại mật khẩu</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
-    <div class="modal-body">
-      <p>Nhập mật khẩu mới (hoặc để trống để đặt về mặc định <code>123456</code>):</p>
-      <input id="resetPasswordInput" class="form-control" placeholder="mật khẩu mới (tùy chọn)">
-      <div class="form-text mt-2">Sau khi reset, mật khẩu mới sẽ được hiển thị 1 lần để bạn gửi cho người dùng.</div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-      <button id="confirmResetPassBtn" class="btn btn-warning">Đặt lại</button>
-    </div>
-  </div></div></div>
-
-  
-  <!-- DOC modal -->
-  <div class="modal fade" id="modalDoc" tabindex="-1">
+<div class="modal fade" id="modalDoc" tabindex="-1">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="modalDocTitle"></h5>
-          <button class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-header bg-info text-white">
+          <h5 class="modal-title" id="modalDocTitle">Mẫu văn bản</h5>
+          <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body bg-light">
           <input type="hidden" id="doc_id">
-          <div class="mb-3">
-            <label class="form-label">Tên mẫu</label>
-            <input id="doc_name" class="form-control" />
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Mô tả</label>
-            <input id="doc_description" class="form-control" />
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Nội dung mẫu</label>
-            <div id="doc_content_editor" style="height: 200px; background:#fff; border:1px solid #ced4da;"></div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label">URL file (PDF)</label>
-            <input id="doc_file_path" class="form-control" />
+          
+          <div class="card border-0 shadow-sm">
+             <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label fw-bold small">Tên mẫu <span class="text-danger">*</span></label>
+                        <input id="doc_name" class="form-control" placeholder="Ví dụ: Giấy đề nghị thanh toán" />
+                    </div>
+                    
+                    <div class="col-12">
+                        <label class="form-label fw-bold small">Mô tả ngắn</label>
+                        <textarea id="doc_description" class="form-control" rows="2" placeholder="Mô tả mục đích sử dụng..."></textarea>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-bold small">Nội dung mẫu (Soạn thảo trực tiếp)</label>
+                        <div id="doc_content_editor" style="height: 300px; background:#fff;"></div>
+                    </div>
+
+                    <div class="col-12"><hr class="text-muted"></div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small"><i class="bi bi-cloud-upload me-1"></i> Tải file đính kèm (PDF/Word)</label>
+                        <input type="file" id="doc_file_upload" class="form-control" accept=".pdf,.doc,.docx">
+                        <div class="form-text small">Chọn file từ máy tính nếu không muốn soạn thảo ở trên.</div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold small">Hoặc nhập URL file</label>
+                        <input id="doc_file_path" class="form-control" placeholder="https://..." />
+                    </div>
+                </div>
+             </div>
           </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-          <button id="saveDoc" class="btn btn-primary">Lưu</button>
+          <button id="saveDoc" class="btn btn-info text-white px-4">Lưu mẫu</button>
         </div>
       </div>
     </div>
   </div>
-  <!--modal xem nội dung văn bản--> 
-  <div class="modal fade" id="modalViewDoc" tabindex="-1">
-  <div class="modal-dialog modal-xl">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="viewDocTitle">Xem mẫu văn bản</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+
+  <div class="modal fade" id="confirmDeleteModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered modal-sm">
+          <div class="modal-content">
+            <div class="modal-body text-center p-4">
+                <i class="bi bi-exclamation-circle text-danger display-4 mb-3 d-block"></i>
+                <h5 class="fw-bold">Xác nhận xóa?</h5>
+                <p id="confirmDeleteText" class="text-muted small">Hành động này không thể hoàn tác.</p>
+                <div class="d-flex justify-content-center gap-2 mt-3">
+                    <button class="btn btn-light border" data-bs-dismiss="modal">Hủy</button>
+                    <button id="confirmDeleteBtn" class="btn btn-danger">Xóa ngay</button>
+                </div>
+            </div>
+          </div>
       </div>
-      <div class="modal-body">
-        <div id="viewDocContent" class="border p-3" style="min-height:200px;"></div>
+  </div>
+
+  <div class="modal fade" id="resetPassModal" tabindex="-1">
+      <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">Đặt lại mật khẩu</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <p>Nhập mật khẩu mới cho nhân viên này:</p>
+              <input id="resetPasswordInput" class="form-control" placeholder="Để trống = mặc định '123456'">
+              <div class="alert alert-warning mt-3 mb-0 small border-0 bg-warning bg-opacity-10 text-warning-emphasis">
+                  <i class="bi bi-info-circle me-1"></i> Sau khi reset, hãy cung cấp mật khẩu này cho nhân viên để họ đăng nhập lại.
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-light border" data-bs-dismiss="modal">Hủy</button>
+              <button id="confirmResetPassBtn" class="btn btn-warning">Xác nhận Đặt lại</button>
+            </div>
+          </div>
+      </div>
+  </div>
+
+  <div class="modal fade" id="modalViewDoc" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="viewDocTitle">Xem chi tiết mẫu</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body bg-light">
+          <div id="viewDocContent" class="bg-white p-5 shadow-sm mx-auto" style="min-height:500px; max-width: 900px;"></div>
+        </div>
       </div>
     </div>
   </div>
-</div>
 
-    <!-- Scripts -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="js/navbar.js"></script> <!-- file navbar logic bạn vừa tạo -->
+  <script src="js/navbar.js"></script> 
   <script>
     $(document).ready(function() {
-      // Tải navbar.html và ép trình duyệt không dùng cache cũ
       $("#navbar-placeholder").load("navbar.html?v=" + Math.random(), function(response, status, xhr) {
         if (status == "error") {
-          console.log("Lỗi tải navbar: " + xhr.status + " " + xhr.statusText);
+          console.log("Lỗi tải navbar");
         } else {
-          // Load xong HTML thì mới chạy logic JS
-          console.log("Navbar HTML loaded!");
-          if (typeof initNavbar === "function") {
-              initNavbar();
-          }
+          if (typeof initNavbar === "function") initNavbar();
         }
       });
     });
   </script>
-  <!-- SCRIPTS -->
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/main.js"></script>
   <script src="js/admin.js"></script>

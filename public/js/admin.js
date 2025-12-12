@@ -50,10 +50,24 @@ function fillSelect(selectEl, list, valueFn = (x)=>x.id, labelFn = (x)=>x.name, 
 }
 
 /* ---------- Common Delete ---------- */
+/* ---------- Common Delete ---------- */
 let pendingDelete = null;
+
 function askDelete(type, id) {
   pendingDelete = { type, id };
-  const text = type === 'room' ? `Bạn có chắc muốn xóa phòng ${id}?` : `Bạn có chắc muốn xóa nhân viên ${id}?`;
+  let text = '';
+  
+  // Sửa logic hiển thị text cho đúng loại
+  if (type === 'room') {
+      text = `Bạn có chắc muốn xóa phòng họp ${id}?`;
+  } else if (type === 'user') {
+      text = `Bạn có chắc muốn xóa nhân viên ${id}?`;
+  } else if (type === 'document_templates') {
+      text = `Bạn có chắc muốn xóa mẫu văn bản ${id}?`; // Đã thêm dòng này
+  } else {
+      text = `Bạn có chắc muốn xóa mục ${id} này?`;
+  }
+
   document.getElementById('confirmDeleteText').textContent = text;
   new bootstrap.Modal(document.getElementById('confirmDeleteModal')).show();
 }
@@ -61,20 +75,33 @@ function askDelete(type, id) {
 document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
   if (!pendingDelete) return;
   const { type, id } = pendingDelete;
+  
   try {
     if (type === 'room') {
       await api(`/rooms/${id}`, { method:'DELETE' });
       alert('Đã xóa phòng');
       if (typeof loadRooms === 'function') loadRooms();
+
     } else if (type === 'user') {
       await api(`/users/${id}`, { method:'DELETE' });
       alert('Đã xóa nhân viên');
       if (typeof loadUsers === 'function') loadUsers();
+
+    // Thêm logic gọi API xóa văn bản
+    } else if (type === 'document_templates') {
+      await api(`/document_templates/${id}`, { method:'DELETE' });
+      alert('Đã xóa mẫu văn bản');
+      if (typeof loadTemplates === 'function') loadTemplates();
     }
+
   } catch (err) {
+    console.error(err);
     alert('Lỗi: ' + err.message);
   } finally {
     pendingDelete = null;
-    bootstrap.Modal.getInstance(document.getElementById('confirmDeleteModal')).hide();
+    const modalEl = document.getElementById('confirmDeleteModal');
+    // Cách lấy instance modal an toàn hơn
+    const modalInstance = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+    modalInstance.hide();
   }
 });
