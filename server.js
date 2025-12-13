@@ -1140,7 +1140,34 @@ app.post('/api/book', async (req, res) => {
         }
       }
     }
+// Chuyển Set allUserIds thành mảng để query
+    const listUserCheck = Array.from(allUserIds);
 
+    if (listUserCheck.length > 0) {
+      // Tìm xem trong đám người này, có ai đang kẹt trong một cuộc họp KHÁC không
+      const [busyUsers] = await conn.query(`
+        SELECT DISTINCT up.full_name
+        FROM participants p
+        JOIN bookings b ON p.booking_id = b.id
+        JOIN users u ON p.user_id = u.id
+        JOIN user_profiles up ON u.id = up.user_id
+        WHERE 
+          p.user_id IN (?)              
+          AND b.id != ?               
+          AND NOT (b.end_time <= ? OR b.start_time >= ?)
+      `, [listUserCheck, bookingId, start_time, end_time]);
+
+      if (busyUsers.length > 0) {
+        // Nếu có người bận -> Hủy kèo, Rollback lại toàn bộ
+        await conn.rollback();
+        const names = busyUsers.map(u => u.full_name).join(', ');
+        return res.status(409).json({ 
+          error: `Không thể đặt lịch! Các nhân viên sau đang bận trong khung giờ này: ${names}` 
+        });
+      }
+    }
+    // ========================================================================
+    // 🛑 END: KẾT THÚC ĐOẠN KIỂM TRA
     // 6️⃣ Trả về booking vừa tạo
     const [rows] = await conn.query(
       'SELECT b.*, r.name AS room_name FROM bookings b JOIN rooms r ON r.id = b.room_id WHERE b.id = ?',
@@ -1158,7 +1185,6 @@ app.post('/api/book', async (req, res) => {
     conn.release();
   }
 });
-
 
 // Lấy thông báo cho user (MySQL)
 app.get('/api/notifications/:userId', async (req, res) => {
@@ -2406,8 +2432,9 @@ app.get('/api/report/sign', async (req, res) => {
     let sql = `
       SELECT
         d.id AS document_id,
+        d.title,
         up_sender.full_name AS sender,
-        up_signer.full_name AS signer,
+        GROUP_CONCAT(up_signer.full_name SEPARATOR ', ') AS signers,
         d.created_at,
         d.status
       FROM documents d
@@ -2417,6 +2444,7 @@ app.get('/api/report/sign', async (req, res) => {
       LEFT JOIN users u_signer ON ds.signer_id = u_signer.id
       LEFT JOIN user_profiles up_signer ON up_signer.user_id = u_signer.id
       WHERE 1=1
+      GROUP BY d.id, d.title, up_sender.full_name, d.created_at, d.status
     `;
 
     const params = [];

@@ -554,8 +554,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${d.document_id}</td>
+          <td>${d.title}</td>
           <td>${d.sender}</td>
-          <td>${d.signer}</td>
+          <td>${d.signers}</td>
           <td>${formatDateTime(d.created_at)}</td>
           <td>${d.status}</td>
         `;

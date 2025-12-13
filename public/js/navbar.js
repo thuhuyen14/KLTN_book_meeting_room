@@ -120,25 +120,40 @@ if (roleNorm !== "manager") {
     `;
     
     // Gắn sự kiện đăng xuất
-// Gắn sự kiện đăng xuất (ĐÃ SỬA ĐỂ FIX LỖI MÀN HÌNH ĐEN)
-    document.getElementById("logoutBtn")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      
-      // 1. Dọn dẹp dữ liệu phiên
-      localStorage.clear();
-      sessionStorage.clear();
+// ... (Code bên trên của initNavbar giữ nguyên) ...
 
-      // 2. 🔥 CƯỠNG CHẾ XÓA MỌI LỚP MÀN ĐEN NGAY LẬP TỨC
-      // Xóa class khóa cuộn của body
-      document.body.classList.remove('modal-open', 'swal2-shown', 'swal2-height-auto');
-      document.body.style = ""; 
+    // Gắn sự kiện đăng xuất (ĐOẠN CẦN SỬA)
+    // Lưu ý: ID phải chính xác là "logoutBtn" khớp với HTML
+    const logoutLink = document.getElementById("logoutBtn");
+    
+    if (logoutLink) {
+        logoutLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            
+            // 1. Dọn dẹp dữ liệu phiên
+            localStorage.clear();
+            sessionStorage.clear();
 
-      // Tìm và diệt các thẻ div màn đen (của Bootstrap Modal hoặc SweetAlert)
-      document.querySelectorAll('.modal-backdrop, .swal2-container, .swal2-backdrop-show').forEach(el => el.remove());
+            // 2. Đóng tất cả Modal đang mở bằng lệnh chuẩn (để nó tự dọn dẹp backdrop)
+            document.querySelectorAll('.modal.show').forEach(modalEl => {
+                const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                if (modalInstance) {
+                    modalInstance.hide();
+                }
+            });
 
-      // 3. Dùng replace thay vì href để người dùng không bấm Back quay lại được
-      window.location.replace("login.html");
-    });
+            // 3. Dọn dẹp thủ công các lớp màn đen (Zombie backdrop) nếu bước 2 chưa kịp chạy
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+            document.body.classList.remove('modal-open');
+            document.body.style = ""; 
+
+            // 4. Đợi 100ms cho màn hình sạch sẽ rồi mới chuyển trang
+            setTimeout(() => {
+                window.location.replace("login.html");
+            }, 100);
+        });
+    }
+
 
     // 4. Tải thông báo (Chỉ tải khi đã đăng nhập)
     loadNotifications();

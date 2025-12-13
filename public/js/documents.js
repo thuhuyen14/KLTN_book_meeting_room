@@ -196,7 +196,23 @@ function renderDocumentsTable(items){
   // 5. KÍCH HOẠT DATATABLE
   $table.DataTable({
       "language": {
-            "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/vi.json"
+            // Thay thế URL bằng object cấu hình trực tiếp để sửa chữ Search
+            "search": "Tìm kiếm:",
+            "searchPlaceholder": "Nhập từ khóa...",
+            "processing": "Đang xử lý...",
+            "lengthMenu": "Hiển thị _MENU_ dòng",
+            "info": "Hiển thị _END_/_TOTAL_ văn bản",
+            "infoEmpty": "Không có dữ liệu",
+            "infoFiltered": "(lọc từ _MAX_ văn bản)",
+            "loadingRecords": "Đang tải...",
+            "zeroRecords": "Không tìm thấy kết quả nào phù hợp",
+            "emptyTable": "Không có dữ liệu văn bản",
+            "paginate": {
+                "first": "Đầu",
+                "previous": "Trước",
+                "next": "Sau",
+                "last": "Cuối"
+            }
       },
       "pageLength": 10,
       "lengthMenu": [[5, 10, 25, 50, -1], [5, 10, 25, 50, "Tất cả"]],

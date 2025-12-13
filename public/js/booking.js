@@ -138,7 +138,6 @@ async function loadAvailableRooms(selectedRoomId = null) {
         roomSelect.innerHTML = '<option value="">Không tải được danh sách phòng trống</option>';
     }
 }
-
 // ===== Handle Booking Submit =====
 async function handleBooking(e) {
     e.preventDefault();
@@ -158,6 +157,7 @@ async function handleBooking(e) {
     const end = new Date(end_time).getTime();
     const safeNow = now - 60 * 1000;
 
+    // Validate phía Client (Giữ nguyên màu vàng cảnh báo)
     if (start <= safeNow) {
         result.innerHTML = `<div class="alert alert-warning">Không thể đặt lịch trong quá khứ</div>`;
         return;
@@ -182,21 +182,46 @@ async function handleBooking(e) {
             body: JSON.stringify(payload)
         });
 
+        // Nếu API wrapper của bạn trả về data ngay khi thành công
         if (res.success) {
             result.innerHTML = `<div class="alert alert-success">Đặt phòng thành công: ${res.booking.title}</div>`;
             document.getElementById('bookForm').reset();
+            // Reset lại dropdown phòng
             document.getElementById('roomSelect').innerHTML = '<option value="">Chọn thời gian trước để xem phòng trống</option>';
             calendar.refetchEvents();
         } else {
-            result.innerHTML = `<div class="alert alert-danger">${res.error}</div>`;
+            // Trường hợp response 200 nhưng logic success = false (ít gặp nếu dùng chuẩn REST)
+            result.innerHTML = `<div class="alert alert-warning">${res.error || 'Có lỗi xảy ra'}</div>`;
         }
 
     } catch (err) {
-        result.innerHTML = `<div class="alert alert-danger">Lỗi server</div>`;
-        console.error(err);
+        console.error("Debug Error:", err); // Giữ log để dev xem
+
+        let message = "Lỗi kết nối server";
+        let alertType = "alert-danger"; // Mặc định là đỏ nếu lỗi nghiêm trọng/network
+
+        // XỬ LÝ LỖI TỪ API (409 Conflict, 400 Bad Request...)
+        // API wrapper của bạn đang ném lỗi dạng: Error: {"error": "Nội dung lỗi..."}
+        if (err.message) {
+            try {
+                // Cố gắng parse chuỗi JSON trong message
+                const errData = JSON.parse(err.message);
+                if (errData.error) {
+                    message = errData.error; // Lấy câu thông báo cụ thể: "Nguyễn Văn A bận..."
+                    alertType = "alert-warning"; // Chuyển sang màu vàng (cảnh báo nhẹ nhàng)
+                }
+            } catch (e) {
+                // Nếu không parse được JSON, dùng luôn message gốc nếu nó không phải "Failed to fetch"
+                if (err.message !== "Failed to fetch") {
+                    message = err.message;
+                }
+            }
+        }
+
+        // Hiển thị thông báo
+        result.innerHTML = `<div class="alert ${alertType}">${message}</div>`;
     }
 }
-
 // ===== Calendar Init =====
 let calendar;
 document.addEventListener('DOMContentLoaded', async () => {
