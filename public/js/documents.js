@@ -379,7 +379,6 @@ $(document).on('click', '.view-signers-btn', async function(){
     $body.html('<div class="text-center text-danger">Lỗi khi tải luồng ký</div>');
   }
 });
-
 // sign / reject
 // CLICK SIGN BUTTON
 $(document).on('click', '.sign-btn', async function () {
@@ -388,62 +387,74 @@ $(document).on('click', '.sign-btn', async function () {
   const userId = curUser();
 
   try {
-    // --- 1) LẤY THÔNG TIN LUỒNG KÝ ĐỂ KIỂM TRA ---
-  const signerRes = await fetch(API.getSigners(docId));
-  if (!signerRes.ok) throw new Error("Không lấy được thông tin luồng ký");
+    // --- 1) LẤY THÔNG TIN LUỒNG KÝ ĐỂ KIỂM TRA (Client-side check) ---
+    // Giữ lại đoạn này vì nó giúp chặn nhanh các trường hợp chưa đến lượt
+    const signerRes = await fetch(API.getSigners(docId));
+    if (!signerRes.ok) throw new Error("Không lấy được thông tin luồng ký");
 
-  const signerData = await signerRes.json();
-  const myStep = signerData.find(s => String(s.signer_id) === String(userId));
+    const signerData = await signerRes.json();
+    const myStep = signerData.find(s => String(s.signer_id) === String(userId));
 
-  if (!myStep) {
-    alert("Bạn không nằm trong luồng ký của văn bản này.");
-    return;
-  }
+    if (!myStep) {
+      alert("Bạn không nằm trong luồng ký của văn bản này.");
+      return;
+    }
 
-  if (myStep.status !== 'Đang trình ký') {
-    alert("Hiện tại chưa tới lượt ký của bạn (Trạng thái: " + myStep.status + ")");
-    return;
-  }
-
+    if (myStep.status !== 'Đang trình ký') {
+      alert("Hiện tại chưa tới lượt ký của bạn (Trạng thái: " + myStep.status + ")");
+      return;
+    }
 
     // --- 2) CONFIRM ---
     if (!confirm(
       action === 'signed'
-        ? 'Xác nhận ký văn bản này?'
-        : 'Bạn chắc chắn muốn từ chối ký văn bản này?'
+        ? 'Xác nhận KÝ DUYỆT văn bản này?'
+        : 'Bạn chắc chắn muốn TỪ CHỐI ký văn bản này?'
     )) return;
 
     // --- 3) GỌI API KÝ ---
-  const r = await fetch(API.documentSign(docId), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ signer_id: userId, action }) // dùng signer_id
-  });
+    const r = await fetch(API.documentSign(docId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signer_id: userId, action })
+    });
 
+    // 🛑 QUAN TRỌNG: Xử lý lỗi từ Backend (như lỗi chưa đến giờ họp)
+    if (!r.ok) {
+        let errorMsg = 'Có lỗi xảy ra khi xử lý.';
+        try {
+            // Cố gắng đọc message lỗi chi tiết từ JSON server trả về
+            const errRes = await r.json();
+            if (errRes.error) errorMsg = errRes.error;
+        } catch (jsonErr) {
+            // Nếu server lỗi 500 html hoặc không trả về json
+            errorMsg = `Lỗi hệ thống (${r.status}: ${r.statusText})`;
+        }
+        // Ném lỗi xuống catch để alert hiển thị
+        throw new Error(errorMsg);
+    }
 
-    if (!r.ok) throw r;
-
+    // --- 4) XỬ LÝ THÀNH CÔNG ---
     const res = await r.json();
 
     if (res && res.success) {
       alert('Cập nhật trạng thái thành công.');
 
-      // Reload danh sách người ký
+      // Reload lại modal timeline (để thấy mình đã tick xanh)
       $(`.view-signers-btn[data-id="${docId}"]`).trigger('click');
 
-      // Cập nhật trạng thái văn bản
-      const st = await (await fetch(API.documentById(docId))).json();
-      $(`.doc-status[data-id="${docId}"]`).text(st.status);
+      // Reload bảng danh sách văn bản chính (để cập nhật cột Trạng thái)
+      await loadDocuments(); 
     } else {
-      alert('Lỗi: ' + (res && res.error ? res.error : 'Không xác định'));
+      throw new Error(res.error || 'Phản hồi không xác định');
     }
 
   } catch (e) {
-    console.error('sign', e);
-    alert('Lỗi khi cập nhật trạng thái');
+    console.error('sign error', e);
+    // 🔥 Alert nội dung lỗi chính xác (VD: "Chưa đến giờ họp...")
+    alert(e.message);
   }
 });
-
 
 // preview
 $(document).on('click', '.preview-btn', function(){
