@@ -138,14 +138,34 @@ async function loadAvailableRooms(selectedRoomId = null) {
         roomSelect.innerHTML = '<option value="">Không tải được danh sách phòng trống</option>';
     }
 }
-// ===== Handle Booking Submit =====
+// --- KHAI BÁO BIẾN TOÀN CỤC (Để theo dõi số lần sai) ---
+let invalidCount = 0;   // Đếm lỗi nhập liệu (Client)
+let conflictCount = 0;  // Đếm lỗi trùng lịch (Server)
+const MAX_INVALID = 5;  // Max lỗi nhập sai
+const MAX_CONFLICT = 3; // Max lỗi trùng lịch
+
 async function handleBooking(e) {
     e.preventDefault();
+
+    const btnSubmit = document.querySelector('button[type="submit"]'); // Lấy nút submit để disable nếu cần
+    const result = document.getElementById('result');
+
+    // 1. KIỂM TRA GIỚI HẠN TRƯỚC KHI XỬ LÝ
+    if (invalidCount >= MAX_INVALID) {
+        result.innerHTML = `<div class="alert alert-danger">Bạn đã nhập sai định dạng quá 5 lần. Vui lòng tải lại trang để tiếp tục.</div>`;
+        btnSubmit.disabled = true; // Khóa nút
+        return;
+    }
+    if (conflictCount >= MAX_CONFLICT) {
+        result.innerHTML = `<div class="alert alert-danger">Hệ thống phát hiện spam dò lịch (Trùng lịch quá 3 lần). Vui lòng tải lại trang.</div>`;
+        btnSubmit.disabled = true; // Khóa nút
+        return;
+    }
+
+    // Lấy dữ liệu form
     const room_id = document.getElementById('roomSelect').value;
     const title = document.getElementById('title').value;
-    const result = document.getElementById('result');
     const role = localStorage.getItem('role');
-
     const organizer = role === 'User' ? localStorage.getItem('id') : document.getElementById('userSelect').value;
     const start_time = document.getElementById('start').value;
     const end_time = document.getElementById('end').value;
@@ -157,20 +177,19 @@ async function handleBooking(e) {
     const end = new Date(end_time).getTime();
     const safeNow = now - 60 * 1000;
 
-    // Validate phía Client (Giữ nguyên màu vàng cảnh báo)
-    if (start <= safeNow) {
-        result.innerHTML = `<div class="alert alert-warning">Không thể đặt lịch trong quá khứ</div>`;
-        return;
-    }
-    if (!room_id) {
-        result.innerHTML = `<div class="alert alert-warning">Vui lòng chọn phòng</div>`;
-        return;
-    }
-    if (start >= end) {
-        result.innerHTML = `<div class="alert alert-warning">Thời gian kết thúc phải sau thời gian bắt đầu</div>`;
+    // 2. VALIDATE CLIENT (Tăng invalidCount nếu sai)
+    let errorMsg = "";
+    if (start <= safeNow) errorMsg = "Không thể đặt lịch trong quá khứ";
+    else if (!room_id) errorMsg = "Vui lòng chọn phòng";
+    else if (start >= end) errorMsg = "Thời gian kết thúc phải sau thời gian bắt đầu";
+
+    if (errorMsg) {
+        invalidCount++; // Tăng biến đếm lỗi nhập liệu
+        result.innerHTML = `<div class="alert alert-warning">${errorMsg} (Sai lần ${invalidCount}/${MAX_INVALID})</div>`;
         return;
     }
 
+    // 3. GỌI API
     try {
         const payload = { room_id, title, user_id: organizer, start_time, end_time };
         if (team_ids.length) payload.team_ids = team_ids;
@@ -182,43 +201,44 @@ async function handleBooking(e) {
             body: JSON.stringify(payload)
         });
 
-        // Nếu API wrapper của bạn trả về data ngay khi thành công
         if (res.success) {
+            // THÀNH CÔNG -> RESET BIẾN ĐẾM VỀ 0
+            invalidCount = 0;
+            conflictCount = 0;
+
             result.innerHTML = `<div class="alert alert-success">Đặt phòng thành công: ${res.booking.title}</div>`;
             document.getElementById('bookForm').reset();
-            // Reset lại dropdown phòng
             document.getElementById('roomSelect').innerHTML = '<option value="">Chọn thời gian trước để xem phòng trống</option>';
-            calendar.refetchEvents();
+            // calendar.refetchEvents(); // Nếu có dùng thư viện lịch
         } else {
-            // Trường hợp response 200 nhưng logic success = false (ít gặp nếu dùng chuẩn REST)
-            result.innerHTML = `<div class="alert alert-warning">${res.error || 'Có lỗi xảy ra'}</div>`;
+            // API TRẢ VỀ LỖI LOGIC (VD: Success = false)
+            conflictCount++; // Coi như là lỗi xung đột/logic
+            result.innerHTML = `<div class="alert alert-warning">${res.error || 'Có lỗi xảy ra'} (Lỗi lần ${conflictCount}/${MAX_CONFLICT})</div>`;
         }
 
     } catch (err) {
-        console.error("Debug Error:", err); // Giữ log để dev xem
+        console.error("Debug Error:", err);
 
         let message = "Lỗi kết nối server";
-        let alertType = "alert-danger"; // Mặc định là đỏ nếu lỗi nghiêm trọng/network
+        let alertType = "alert-danger";
 
-        // XỬ LÝ LỖI TỪ API (409 Conflict, 400 Bad Request...)
-        // API wrapper của bạn đang ném lỗi dạng: Error: {"error": "Nội dung lỗi..."}
+        // XỬ LÝ LỖI TỪ API (409 Conflict => Tăng conflictCount)
         if (err.message) {
             try {
-                // Cố gắng parse chuỗi JSON trong message
                 const errData = JSON.parse(err.message);
                 if (errData.error) {
-                    message = errData.error; // Lấy câu thông báo cụ thể: "Nguyễn Văn A bận..."
-                    alertType = "alert-warning"; // Chuyển sang màu vàng (cảnh báo nhẹ nhàng)
+                    message = errData.error;
+                    alertType = "alert-warning";
+                    
+                    // CHÍNH LÀ CHỖ NÀY: Tăng biến đếm khi trùng lịch
+                    conflictCount++; 
+                    message += ` (Thử lại: còn ${MAX_CONFLICT - conflictCount} lần)`;
                 }
             } catch (e) {
-                // Nếu không parse được JSON, dùng luôn message gốc nếu nó không phải "Failed to fetch"
-                if (err.message !== "Failed to fetch") {
-                    message = err.message;
-                }
+                if (err.message !== "Failed to fetch") message = err.message;
             }
         }
 
-        // Hiển thị thông báo
         result.innerHTML = `<div class="alert ${alertType}">${message}</div>`;
     }
 }
